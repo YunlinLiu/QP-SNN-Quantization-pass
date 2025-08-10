@@ -67,47 +67,32 @@ class ZIF(torch.autograd.Function):
 class LIFSpike(nn.Module):
     def __init__(self, thresh=1.0, tau=0.5, gama=1.0):
         super(LIFSpike, self).__init__()
-        self.act = ZIF.apply    #ZIF = Zero If Function，这是作者自己实现的脉冲激活函数！
-        # ZIF.apply是PyTorch调用自定义Function的标准方式
+        self.act = ZIF.apply
         self.thresh = thresh
         self.tau = tau
         self.gama = gama
 
     def forward(self, x):
-        mem = 0#每个batch的mem都初始化为0
-        spike_pot = []#每个batch的spike_pot都初始化为空列表
-        T = x.shape[1]#T是时间步数，T=4
-        # 🔥 关键循环：4次膜电位更新！
+        mem = 0
+        spike_pot = []
+        T = x.shape[1]
         for t in range(T):
             if len(x.shape)==3:
                 inp = x[:,t,:]
             else:
-                # 第1步：取第t个时间步的输入
-                inp = x[:,t,:,:,:] # (256, 64, 32, 32)
-            # 第2步：更新膜电位
-            mem = mem * self.tau + inp     
-            # 第3步：脉冲发放
+                inp = x[:,t,:,:,:]
+            mem = mem * self.tau + inp      # BTCHW C L1
             spike = self.act(mem - self.thresh, self.gama)
-            # 第4步：膜电位重置（硬重置）
             mem = (1 - spike) * mem
-            # 第5步：保存这个时间步的脉冲
-            spike_pot.append(spike)# spike形状: (256, 64, 32, 32)
-             # 🎯 合并所有时间步的脉冲
-        return torch.stack(spike_pot, dim=1)# (256, 4, 64, 32, 32)
+            spike_pot.append(spike)
+        return torch.stack(spike_pot, dim=1)
 
 
 def add_dimention(x, T):
-    x.unsqueeze_(1) # 在第1维插入新维度
-    x = x.repeat(1, T, 1, 1, 1)# 在时间维度上重复T次
+    x.unsqueeze_(1)
+    x = x.repeat(1, T, 1, 1, 1)
     return x
-# 输入：标准的4维图像数据
-#nput_shape = (256, 3, 32, 32)  # (Batch, Channel, Height, Width)
 
-# 步骤1：unsqueeze_(1) 在第1维插入时间维度
-#after_unsqueeze = (256, 1, 3, 32, 32)  # (B, T=1, C, H, W)
-
-# 步骤2：repeat(1, T, 1, 1, 1) 在时间维度重复
-#final_shape = (256, 4, 3, 32, 32)      # (B, T=4, C, H, W)
 
 # ----- For ResNet19 code -----
 
@@ -127,8 +112,8 @@ class tdLayer(nn.Module):
 class tdBatchNorm(nn.Module):
     def __init__(self, out_panel):
         super(tdBatchNorm, self).__init__()
-        self.bn = nn.BatchNorm2d(out_panel)# 标准批归一化
-        self.seqbn = SeqToANNContainer(self.bn)# 2. 包装成支持时间序列的版本
+        self.bn = nn.BatchNorm2d(out_panel)
+        self.seqbn = SeqToANNContainer(self.bn)
 
     def forward(self, x):
         y = self.seqbn(x)

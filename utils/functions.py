@@ -7,7 +7,7 @@ import os
 import numpy as np
 import logging
 import math
-#from models.quant_function import HardQuantizeConv
+from models.quant_function import HardQuantizeConv
 # from timm.models import resume_checkpoint
 
 def seed_all(seed=1029):

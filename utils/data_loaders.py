@@ -17,8 +17,7 @@ warnings.filterwarnings('ignore')
 
 
 def build_cifar(cutout=False, use_cifar10=True, download=False):
-    # 简化数据增强，避免pickle问题
-    aug = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()]
+    aug = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), CIFAR10Policy()]
     aug.append(transforms.ToTensor())
 
     if cutout:
@@ -33,9 +32,9 @@ def build_cifar(cutout=False, use_cifar10=True, download=False):
             transforms.Normalize(
                 (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ])
-        train_dataset = CIFAR10(root='./data/',
+        train_dataset = CIFAR10(root='/data/dataset/CIFAR10/',
                                 train=True, download=download, transform=transform_train)
-        val_dataset = CIFAR10(root='./data/',
+        val_dataset = CIFAR10(root='/data/dataset/CIFAR10/',
                               train=False, download=download, transform=transform_test)
 
     else:
@@ -49,9 +48,9 @@ def build_cifar(cutout=False, use_cifar10=True, download=False):
             transforms.Normalize(
                 (0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
         ])
-        train_dataset = CIFAR100(root='./data/',
+        train_dataset = CIFAR100(root='/data/dataset/CIFAR100/',
                                  train=True, download=download, transform=transform_train)
-        val_dataset = CIFAR100(root='./data/',
+        val_dataset = CIFAR100(root='/data/dataset/CIFAR100/',
                                train=False, download=download, transform=transform_test)
 
     return train_dataset, val_dataset

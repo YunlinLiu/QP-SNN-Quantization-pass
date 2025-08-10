@@ -32,7 +32,7 @@ class VGG(nn.Module):
     def _make_layers(self, cfg):
 
         layers = nn.Sequential()
-        in_channels = 3 #Number of input channels (for RGB images)
+        in_channels = 3
         cnt=0
         x = int(cfg[0] * (1-self.compress_rate[cnt]))
         conv2d = nn.Conv2d(in_channels=in_channels, out_channels=x, kernel_size=3, stride=1, padding=1)
@@ -80,36 +80,12 @@ class VGG(nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x):
-        x = add_dimention(x, self.T) #在这里把图片重复4次！
-        #(256, 3, 32, 32) → (256, 4, 3, 32, 32)
+        x = add_dimention(x, self.T)
         x = self.features(x)
-        x = self.avgpool(x) # 输入: (256, 4, 512, 2, 2) → 输出: (256, 4, 512, 1, 1)
-        x = torch.flatten(x, 2) # 输入: (256, 4, 512, 1, 1) → 输出: (256, 4, 512)
-        x = self.classifier(x) # 输入: (256, 4, 512) → 输出: (256, 4，10)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 2)
+        x = self.classifier(x)
         return x
-    
-#forward过程解释：
-# [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512]
-#以CIFAR-10为例，输入图片大小为32x32，batch_size=256，T=4，
-# 对应的特征提取过程：
-# Input:    (256, 4, 3, 32, 32)
-# Conv64:   (256, 4, 64, 32, 32)
-# Conv64:   (256, 4, 64, 32, 32)  
-# MaxPool:  (256, 4, 64, 16, 16)
-# Conv128:  (256, 4, 128, 16, 16)
-# Conv128:  (256, 4, 128, 16, 16)
-# MaxPool:  (256, 4, 128, 8, 8)
-# Conv256:  (256, 4, 256, 8, 8)
-# Conv256:  (256, 4, 256, 8, 8)
-# Conv256:  (256, 4, 256, 8, 8)
-# MaxPool:  (256, 4, 256, 4, 4)
-# Conv512:  (256, 4, 512, 4, 4)
-# Conv512:  (256, 4, 512, 4, 4)
-# Conv512:  (256, 4, 512, 4, 4)
-# MaxPool:  (256, 4, 512, 2, 2)
-# Conv512:  (256, 4, 512, 2, 2)
-# Conv512:  (256, 4, 512, 2, 2)
-# Conv512:  (256, 4, 512, 2, 2)
 
 class VGG_XuQi(nn.Module):
     def __init__(self, compress_rate, num_bits, num_classes, cfg=None, step=4):

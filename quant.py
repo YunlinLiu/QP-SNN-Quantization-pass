@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,7 +77,7 @@ parser.add_argument(
 parser.add_argument(
     '-j',
     '--workers',
-    default=0,  # 在Windows上设置为0避免多进程问题
+    default=16,
     type=int,
     metavar='N',
     help='number of data loading workers (default: 16)')
@@ -89,17 +89,11 @@ parser.add_argument(
     metavar='N',
     help='bitwidth of weight')
 
-parser.add_argument(
-    '--time',
-    default=4,
-    type=int,
-    help='time steps for SNN')
-
 args = parser.parse_args()
 print_freq = (256*50)//args.batch_size
 
 common.record_config(args)
-now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
 logger = common.get_logger(os.path.join(args.job_dir, 'logger'+now+'.log'))
 
 if not os.path.isdir(args.job_dir):
@@ -132,9 +126,7 @@ def train(epoch, train_loader, model, criterion, optimizer, scheduler):
 
         # compute outputy
         logits = model(images)
-        # SNN模型输出是5维的: (Batch, Time, Classes) = (256, 4, 10)
         out = logits.mean(1)
-        # 对时间维度求平均，得到最终分类结果: # (256, 100)
         loss = criterion(out, target)
 
         # measure accuracy and record loss
@@ -200,10 +192,10 @@ def main():
 
     # load training data
     if args.dataset == 'CIFAR10':
-        trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=True, download=True)
+        trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=True, download=False)
         CLASSES = 10
     elif args.dataset == 'CIFAR100':
-        trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=False, download=True)
+        trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=False, download=False)
         CLASSES = 100
     elif args.dataset == 'ImageNet':
         trainset, testset = data_loaders.build_imagenet()
@@ -223,7 +215,7 @@ def main():
     # load model
     logger.info('==> Building model..')
     logger.info('=== Bit width===:'+str(args.bit))
-    model = eval(args.arch)(compress_rate=[0.]*100, num_bits=args.bit, num_classes=CLASSES)
+    model = eval(args.arch)(compress_rate=[0.]*100,num_bits=args.bit,num_classes=CLASSES)
     model.to(device)
     logger.info(model)
 
@@ -235,16 +227,11 @@ def main():
     # logger.info('Params: %s' % (params))
     # logger.info('Flops: %s' % (flops))
 
-    if torch.cuda.is_available() and len(args.gpu) > 1:
+    if len(args.gpu) > 1:
         device_id = []
         for i in range((len(args.gpu) + 1) // 2):
             device_id.append(i)
         model = nn.DataParallel(model, device_ids=device_id).cuda()
-    elif torch.cuda.is_available():
-        model = model.cuda()
-    else:
-        logger.info('CUDA not available, using CPU')
-        model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
     criterion = criterion.to(device)
@@ -257,13 +244,9 @@ def main():
             weight_parameters.append(p)
     weight_parameters_id = list(map(id, weight_parameters))
     other_parameters = list(filter(lambda p: id(p) not in weight_parameters_id, all_parameters))
-    optimizer = torch.optim.SGD(
+    optimizer = torch.optim.Adam(
         [{'params': other_parameters},
-         {'params': weight_parameters, 'weight_decay': 1e-5}], 
-        lr=args.lr,
-        momentum=0.9,  # 添加动量参数
-        nesterov=True  # 可选：使用Nesterov动量
-    )
+         {'params': weight_parameters, 'weight_decay': 1e-5}], lr=args.lr, )
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=args.epochs)
 
