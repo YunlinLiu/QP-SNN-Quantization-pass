@@ -1,0 +1,1631 @@
+Going Deeper With Directly-Trained Larger Spiking Neural Networks
+Hanle Zheng 1
+, Yujie Wu 1
+, Lei Deng 1,3, Yifan Hu 1 and Guoqi Li 1,2 *
+1 Center for Brain-Inspired Computing Research, Department of Precision Instrument, Tsinghua University, Beijing 100084,
+China
+2 Beijing Innovation Center for Future Chip, Tsinghua University, Beijing 100084, China
+3 Department of Electrical and Computer Engineering, University of California, Santa Barbara
+Abstract
+Spiking neural networks (SNNs) are promising in a bio￾plausible coding for spatio-temporal information and event￾driven signal processing, which is very suited for energy￾efficient implementation in neuromorphic hardware. How￾ever, the unique working mode of SNNs makes them more
+difficult to train than traditional networks. Currently, there are
+two main routes to explore the training of deep SNNs with
+high performance. The first is to convert a pre-trained ANN
+model to its SNN version, which usually requires a long cod￾ing window for convergence and cannot exploit the spatio￾temporal features during training for solving temporal tasks.
+The other is to directly train SNNs in the spatio-temporal
+domain. But due to the binary spike activity of the firing
+function and the problem of gradient vanishing or explo￾sion, current methods are restricted to shallow architectures
+and thereby difficult in harnessing large-scale datasets (e.g.
+ImageNet). To this end, we propose a threshold-dependent
+batch normalization (tdBN) method based on the emerging
+spatio-temporal backpropagation, termed “STBP-tdBN”, en￾abling direct training of a very deep SNN and the efficient
+implementation of its inference on neuromorphic hardware.
+With the proposed method and elaborated shortcut connec￾tion, we significantly extend directly-trained SNNs from a
+shallow structure (<10 layer) to a very deep structure (50 lay￾ers). Furthermore, we theoretically analyze the effectiveness
+of our method based on “Block Dynamical Isometry” theory.
+Finally, we report superior accuracy results including 93.15%
+on CIFAR-10, 67.8% on DVS-CIFAR10, and 67.05% on Im￾ageNet with very few timesteps. To our best knowledge, it’s
+the first time to explore the directly-trained deep SNNs with
+high performance on ImageNet. We believe this work shall
+pave the way of fully exploiting the advantages of SNNs and
+attract more researchers to contribute in this field.
+Introduction
+Inspired by human neurons’ working patterns, spiking neu￾ral networks (SNNs) have been considered as a promis￾ing model in artificial intelligence and theoretical neuro￾science (Roy, Jaiswal, and Panda 2019). Benefited from in￾trinsic neuronal dynamics and event-driven spike communi￾cation paradigms, SNNs show great potential in continuous
+spatio-temporal information processing with lower energy
+*Corresponding author: Guoqi Li (liguoqi@tsinghua.edu.cn)
+Copyright © 2021, Association for the Advancement of Artificial
+Intelligence (www.aaai.org). All rights reserved.
+consumption and better robustness(Stromatias et al. 2015).
+Moreover, SNNs can be easily applied on some specialized
+neuromorphic hardware (Merolla et al. 2014; Davies et al.
+2018), which may be seen as the next generation of neural
+networks.
+There are two main approaches to train an SNN with
+high performance. One is to convert a pre-trained ANN
+to an SNN model, which usually needs hundreds of
+timesteps(Sengupta et al. 2019; Hu et al. 2018). So, even
+though these SNNs achieve comparable accuracy to ANNs
+with similar structures, the large number of timesteps causes
+serious signal latency and increase the amount of compu￾tation. The other is to train SNNs directly based on gra￾dient descent method, which is independent of pre-trained
+ANNs and can lessen the number of timesteps. A recent
+work (Wu et al. 2018), which proposes a learning algorithm
+called “Spatio-temporal backpropagation” (STBP) with an
+approach to training SNNs directly on ANN-oriented pro￾gramming frameworks (e.g. Pytorch), provides us with a
+chance to explore deeper and larger directly-trained SNNs.
+However, SNNs trained by this algorithm are restricted to
+shallow architectures and cannot achieve satisfactory perfor￾mance on large-scale datasets such as ImageNet. So under
+above algorithm, we clarify two problems to be solved for
+training deeper SNNs directly.
+The first problem is gradient vanishing or explosion. Be￾cause of special mechanism of spatio-temporal information
+processing and non-differentiable spiking signal, the gradi￾ent propagation behaves much unstable and tends to van￾ish in most cases when training SNNs directly, which pre￾vents SNNs from going deeper. So far, there isn’t an effec￾tive method to handle this problem well in directly-trained
+SNNs. Famous works (Lee et al. 2020; Lee, Delbruck, and
+Pfeiffer 2016; Wu et al. 2019) before us fail to train deep
+SNNs directly and all of their models are less than 10 layers,
+which seriously influences the performances of their meth￾ods.
+The other problem is that we need to balance the thresh￾old and input on each neuron to get appropriate firing rates
+in SNNs. When the input is too small compared with the
+threshold, the neuron fires few spikes and the neuronal mem￾brane potential remains so the information handled by the
+neuron cannot be expressed enough. When the input is too
+large, the neuron fires all the time and is insensitive to
+arXiv:2011.05280v2 [cs.NE] 18 Dec 2020
+the change of input. For directly-trained SNNs, with binary
+spikes propagating layer by layer, the distribution of pre￾synaptic inputs will shift during the training process, making
+the size of inputs inappropriate. Many methods have been
+proposed to deal with it, such as threshold regularization
+(Lee, Delbruck, and Pfeiffer 2016) and NeuNorm (Wu et al.
+2019).
+Normalization seems to be appropriate methods to solve
+both of the problems. They stabilize the network and gradi￾ent propagation according to (Chen et al. 2020). Also, they
+normalize the distributions of pre-synaptic inputs to same
+expectation and variance, which helps to balance the thresh￾old and input by reducing the internal covariate shift. How￾ever, the existing normalization methods aren’t suitable for
+training of SNNs. For the additional temporal dimension and
+special activation mechanism, directly-trained SNNs need a
+specially designed normalization method .
+In this paper, we develop a new algorithm to train a deep
+SNN directly. The main contributions of this work are sum￾marized as follows:
+• We propose the threshold-dependent batch normalization
+to solve the gradient vanishing or explosion problem and
+adjust firing rate. Furthermore, we take the residual net￾work structure and modify the shortcut connections which
+are suitable for deep SNNs.
+• On this basis, we investigate very deep directly-trained
+SNNs (extending them from less than 10 to 50 lay￾ers) and test them over large-scale non-spiking datasets
+(CIFAR-10, ImageNet) and neuromorphic datasets (DVS￾Gesture, DVS-CIFAR10).
+• On CIFAR-10 and ImageNet, we comprehensively val￾idate different SNN architectures (ResNet-18, 34, 50)
+and report competitive results compared to similar SNNs
+with much fewer timesteps (no more than 6 timesteps),
+to our best knowledge, which is the first time that
+the directly-trained SNN with full spikes report fairly
+high accuracy on ImageNet. On neuromorphic datasets,
+our model achieves state-of-the-art performance on both
+DVS-Gesture and DVS-CIFAR10, which shows advan￾tage of SNNs on dealing with temporal-spatial informa￾tion.
+Related Work
+Learning algorithm of SNNs In the past few years, a
+lot of learning algorithms have explored how to train a
+deep SNN with high performance, including: (1) some ap￾proaches to converting pre-trained ANNs to SNNs; (2) gra￾dient descent based algorithms.
+The first one is called as the “ANN-SNN conversion meth￾ods” (Sengupta et al. 2019; Han, Srinivasan, and Roy 2020),
+seen as the most popular way to train deep SNNs with
+high performance, which transforms the real-valued out￾put of ReLU function to binary spikes in the SNN. This
+kind of method successfully reports competitive results over
+large-scale datasets without serious degradation compared to
+ANNs. However, it ignores rich temporal dynamic behaviors
+of spiking neurons and usually requires hundreds or thou￾sands of time steps to approach the accuracy of pre-trained
+ANNs.
+The gradient descent based algorithms train SNNs with
+error backpropagation. With gradient descent optimization
+learning algorithms, some SNN models (Lee, Delbruck, and
+Pfeiffer 2016; Jin, Zhang, and Li 2018; Lee et al. 2020)
+achieve high performance on CIFAR-10 and other neuro￾morphic datasets. Among them, (Wu et al. 2019) improves
+the leaky integrate-and-fire (LIF) model (Hunsberger and
+Eliasmith 2015) to an iterative LIF model and develop
+STBP learning algorithm, which makes it friendly on ANN￾oriented programming frameworks and speeds up the train￾ing process. Moreover, training SNNs directly shows great
+potential on dealing with spatial and temporal information
+and reports high accuracy within very few timesteps. How￾ever, it fails to train a very deep SNN directly because of
+the gradient vanishing and internal covariate shift, which is
+exactly what we want to conquer.
+Gradient vanishing or explosion in the deep neural net￾work (DNN) A DNN can avoid gradient vanishing or ex￾plosion when it is dynamic isometry, which means every
+singular value of its input-output jacobian matrix remains
+close to 1. (Chen et al. 2020) proposes a metric—“Block
+Dynamical Isometry”, serving as a general statistical tool
+to all of complex serial-parallel DNN. It investigates the first
+and second moment of each block in the neural network and
+analyze their effects to the gradient distribution. Moreover,
+it gives theoretical explanation to the function of the weight
+initialization, batch normalization and shortcut connection
+in the neural network, which helps us to develop our algo￾rithm.
+Normalization Normalization techniques enable the
+training of well-behaved neural networks. For artificial
+neural networks, normalization, such as batch normalization
+(Ioffe and Szegedy 2015), group normalization (Wu and
+He 2018), and layer normalization (Ba, Kiros, and Hinton
+2016), have become common methods. Batch normalization
+(BN) accelerates deep networks training by reducing
+internal covariate shift, which enables higher learning rates
+and regularizes the model. While it causes high learning
+latency and increases computation, BN makes it possible for
+networks to go deeper avoiding gradient vanishing or ex￾plosion. For SNNs, researchers propose other normalization
+techniques, such as data-based normalization (Diehl et al.
+2015), Spike-Norm (Sengupta et al. 2019) and NeuNorm
+(Wu et al. 2019). These normalization methods aim to
+balance the input and threshold to avoid serious information
+loss, but they are not effective to our directly-trained deep
+SNNs because they still neglect the problem of gradient
+vanishing. We noticed the effects of BN in ANNs and the
+importance of input distribution in SNNs, so we modify BN
+to satisfy the training and inference of SNN models.
+Materials and Methods
+Iterative LIF model
+The iterative LIF model is first proposed by (Wu et al. 2019),
+who utilizes Euler method to solve the first-order differential
+equation of Leaky integrate-and-fire (LIF) model and con￾verts it to an iterative expression
+u
+t = τdecayu
+t−1 + I
+t
+, (1)
+where τdecay is a constant to describe how fast the mem￾brane potential decays, u
+t
+is the membrane potential, I
+t
+is
+the pre-synaptic inputs. Let Vth denote the given threshold.
+When u
+t > Vth, the neuron fires a spike and u
+t will be reset
+to 0. The pre-synaptic inputs are accumulated spikes from
+other neurons at the last layer. So I
+t
+can be represented by
+x
+t =
+P j wjo
+t
+(j), where wj are weights and o
+t
+(j) denotes
+binary spiking output from others at the moment of t. Tak￾ing spatial structure into consideration and set ureset = 0,
+the whole iterative LIF model in both spatial and temporal
+domain can be determined by
+u
+t,n+1 = τdecayu
+t−1,n+1(1 − o
+t−1,n+1) + x
+t,n
+, (2)
+o
+t,n+1 =
+
+1 if u
+t,n+1 > Vth,
+0 otherwise.
+(3)
+where u
+t,n is the membrane potential of the neuron in n￾th layer at time t, o
+t,n is the binary spike and τdecay is the
+potential decay constant.
+The iterative LIF model enables forward and backward
+propagation to be implemented on both spatial and tempo￾ral dimensions, which makes it friendly to general machine￾learning programming frameworks.
+Threshold-dependent batch normalization
+As a regular component of DNNs, batch normalization (BN)
+has been a common method for current neural networks,
+which allows stable convergence and much deeper neural
+networks. However, because of the additional temporal di￾mension and special activation mechanism, directly-trained
+SNNs need a specially-designed normalization method.
+That motivates us to propose the threshold-dependent batch
+normalization (tdBN).
+We consider a Spiking Convolution Neural Network
+(SCNN). Let o
+t
+represent spiking outputs of all neurons in a
+layer at timestep t. With convolution kernel W and bias B,
+we have
+x
+t = W ~ o
+t + B, (4)
+where x
+t ∈ RN×C×H×W represents the pre-synapse inputs
+at timestep t with N as the batch axis, C as the channel axis,
+(H, W) as the spatial axis.
+In our tdBN, the high-dimensional pre-synaptic inputs
+will be normalized along the channel dimension (Fig. 1).
+Let x
+t
+k
+represent k-th channel feature maps of x
+t
+. Then
+xk = (x
+1
+k
+, x2
+k
+, · · · , xT
+k
+) will be normalized by
+xˆk =
+αVth(xk − E[xk])
+p
+V ar[xk] + 
+, (5)
+yk = λkxˆk + βk, (6)
+where Vth denotes the threshold, α is a hyper-parameter de￾pending on network structure,  is a tiny constant, λk and βk
+are two trainable parameters, E[xk], V ar[xk] are the mean
+and variance of xk statistically estimated over the Mini￾Batch. Fig. 1 displays how E[xk], V ar[xk] to be computed,
+which are defined by
+E[xk] = mean(xk), (7)
+V ar[xk] = mean((xk − E[xk])2
+). (8)
+So, during the training, yk ∈ RT ×N×H×W is exactly the
+normalized pre-synaptic inputs received by neurons of k-th
+channel at the next layer during T timesteps.
+N C
+𝑥
+2
+N C
+𝑥
+1
+N C
+𝑥
+𝑇
+E [𝑥1]
+N
+T
+Feature maps
+Mean
+Square; Mean
+C-dimensional vector
+Tensor for estimation
+𝑥k
+𝑥
+E [𝑥2]
+E [𝑥k]
+E [𝑥C]
+Var [𝑥1]
+C-dimensional vector
+Var [𝑥2]
+Var [𝑥k]
+Var [𝑥C]
+k-th channel
+Figure 1: Estimation of E[x] and V ar[x] in tdBN. Each
+cube shows a feature map tensor at t timestep, with N as
+the batch axis, C as the channel axis, (H, W) as the spatial
+axis. Each element in C-dimension vector E[x] and V ar[x]
+is estimated by the yellow tensor of corresponding channel.
+In the inference, we follow the schema as standard batch
+normalization to estimate µinf and σinf
+2
+that represent the
+expectation of E[xk] and V ar[xk] respectively over the
+whole datasets, which can be computed during the training
+process by moving average solution.
+Moreover, the batchnorm-scale-fusion is necessary to
+SNNs with tdBN in inference. It removes the batch normal￾ization operations during the inference, thereby maintaining
+the network to be full-spiking and enabling it to be imple￾mented on the neuromorphic platforms. Let Wc,k and Bc,k
+denote the convolution kernel and bias between the c-th fea￾ture map in a layer and the k-th feature map in the next layer.
+The schema is determined by
+Wc,k
+0 = λk
+αVthWc,k
+q
+σinf,k
+2 + 
+, (9)
+Bc,k
+0 = λk
+αVth(Bc,k − µinf,k)
+q
+σinf,k
+2 + 
++ βk, (10)
+where Wc,k
+0 and bias Bc,k
+0 denote the transformed weights
+after the batchnorm-scale-fusion. Thus, during the inference,
+spikes propagate layer by layer through transformed weights
+Wc,k
+0 and bias Bc,k
+0 without batchnorm operations. There￾fore, our tdBN only affects the computation costs during
+H,W H,W H,W
+H,W ··· ··· ··· ··· ···
+··· ··· ··· ···
+training and doesn’t influence the running mechanism of
+SNNs already trained.
+In short, our tdBN has two main differences from the stan￾dard BN. Firstly, unlike ANNs, SNNs propagate information
+not only layer by layer but also from last moment to the next.
+So, tdBN should normalize feature inputs on both temporal
+and spatial dimensions. Secondly, we make normalized vari￾ance dependent on threshold. In tdBN, pre-activations are
+normalized to N(0,(αVth)
+2
+) instead of N(0, 1). And we
+will initialize the trainable parameters λ and β with 1 and
+0. In the serial neural network, the hyper-parameter α is 1.
+For a local parallel network structure having n branches, α
+will be 1/
+√
+n. It makes the pre-activations with mean of 0
+and standard deviation of Vth at the early training. The codes
+of the tdBN can be found in Supplementary Material A.
+Overall training algorithm
+In this section, we present the overall training algorithm of
+the STBP-tdBN for training deep SNNs from scratch with
+our tdBN.
+In the error backpropagation, we consider the last layer as
+the decoding layer, and the final output Q can be determined
+by
+Q =
+T
+1
+T
+X
+t=1
+Mon,t
+, (11)
+where o
+n,t is the spike fired by the last output layer, M is
+the matrix of decoding layer and T denotes the number of
+timesteps.
+Then we make the outputs pass through a softmax layer.
+The loss function is determined as the cross-entropy. Con￾sidering the output Q = (q1, q2, · · · , qn) and label vector
+Y = (y1, y2, · · · , yn), loss function L is defined by
+pi =
+e
+qi
+P
+n
+j=1 e
+qj
+, (12)
+L = −
+nX
+i=1
+yi
+log(pi). (13)
+With the iterative LIF model, STBP-tdBN method back￾propagates the gradient of the loss L on both spatial and tem￾poral domains. By applying the chain rule, ∂o
+∂L
+t,n
+i
+and ∂u
+∂L
+t,n
+i
+can be computed by
+∂L
+∂ot,n
+i
+=
+l(n+1)
+X
+j=1
+∂L
+∂ut,n+1
+j
+∂ut,n+1
+j
+∂ot,n
+i
++
+∂L
+∂ut+1,n
+i
+∂ut+1,n
+i
+∂ot,n
+i
+,
+(14)
+∂L
+∂ut,n
+i
+=
+∂L
+∂ot,n
+i
+∂ot,n
+i
+∂ut,n
+i
++
+∂L
+∂ut
+i
++1,n
+∂ut
+i
++1,n
+∂ut,n
+i
+, (15)
+where o
+t,n and u
+t,n represent the spike and membrane po￾tential of the neuron in layer n at time t. Because of the non￾differentiable spiking activities, ∂ot
+∂ut doesn’t exist in fact.
+To solve this problem, (Wu et al. 2018) proposes derivative
+curve to approximate the derivative of spiking activity. In
+this paper, we use the rectangular function, which is proved
+to be efficient in gradient descent and can be determined by
+∂ot
+∂ut
+=
+1
+a
+sign(|u
+t − Vth| <
+a
+2
+). (16)
+The codes of the overall training algorithm are shown in
+Supplementary Material A.
+Theoretical Analysis
+In this section, we will analyze the effects of tdBN to SNNs
+trained by STBP-tdBN. With theoretical tools about gradient
+norm theory in ANNs, we find that our tdBN can alleviate
+the problem of gradient vanishing or explosion during the
+training process. We also explain the functions of scaling
+factors α and Vth we added during the normalization.
+Gradient norm theory
+The gradient norm theory has been developed well in re￾cent years, which aims to conquer the gradient vanishing or
+explosion in various neural networks structure. In this pa￾per, we adopt the “Block Dynamical Isometry” proposed
+by (Chen et al. 2020) to analyze tdBN’s effect in directly￾trained SNNs. It considers a network as a series of blocks
+f(x) = fi,θi
+◦ fi−1,θi−1 ◦ · · · ◦ f1,θ1
+(x), (17)
+where the function fj,θj
+represents the j
+th block and define
+its input-output jacobian matrix as ∂f
+∂fj
+j−1
+= Jj . Let φ(J)
+represent the expectation of tr(J) and ϕ(J) denote φ(J
+2
+)−
+φ
+2
+(J). Then they proved the following lemmas.
+Lemma 1. Consider a neural network that can be repre￾sented as a series of blocks as Eq. (17) and the j
+th block’s
+jacobian matrix is denoted as Jj . If ∀j, φ(JjJj
+T
+) ≈ 1 and
+ϕ(JjJj
+T
+) ≈ 0 , the network achieves “Block Dynamical
+Isometry” and can avoid gradient vanishing or explosion.
+(Chen et al. 2020)
+Lemma 2. Consider a block of neural network, which con￾sists of data normalization with 0-mean, linear transform
+and rectifier activations (“ General Linear Transform”).
+Let 2
+nd moment of input vector as αin and the output vector
+as αout, we have φ(JJT
+) = α
+α
+out
+in
+. (Chen et al. 2020)
+Based on the theoretical framework of gradient norm, we
+combine it with the unique properties of spiking neurons and
+further analyze the effectiveness of our proposed tdBN algo￾rithm for SNNs.
+LIF model has two special hyper-parameters: τdecay and
+Vth, where τdecay influences the gradients propagation in
+temporal domain and Vth effects the spatial dimension. For
+experiment with SNNs, the τdecay are often set as small
+value (e.g. 0.25). To analyze the gradient transformation, we
+simplify the model and set τdecay as zero and we can get the
+following proposition.
+Theorem 1. Consider an SNN with T timesteps and the j
+th
+block’s jacobian matrix at time t is denoted as Jj
+t
+. When
+τdecay is equal to 0, if we fix the second moment of input
+vector and the output vector to Vth
+2
+for each block between
+two tdBN layers, we have φ(Jj
+t
+(Jj
+t
+)
+T
+) ≈ 1 and the training
+of SNN can avoid gradient vanishing or explosion.
+Proof. The proof of Theorem 1 is based on the Lemma 1
+and Lemma 2. The details are presented in Supplementary
+Material B.
+Influence of membrane decay mechanism We analyze
+the effect of τdecay to the gradient propagation. From equa￾tions (2) and (15), we have
+∂L
+∂ut,n
+i
+=
+∂L
+∂ot,n
+i
+∂ot,n
+i
+∂ut,n
+i
++
+∂L
+∂ut
+i
++1,n
+τdecay(1 − o
+t,n
+i
+). (18)
+That is to say, if a neuron fires a spike, (1 − o
+t,n
+i
+) is equal
+to zero and the gradient is irrelevant to τdecay. On the other
+hand, for τdecay is a tiny constant, the gradient of the neuron
+at time t + 1 has little influence to that at time t.
+To verify the Theorem 1 and our analysis about influence
+of membrane decay mechanism, we evaluate our tdBN in
+20-layers plain spiking network on CIFAR-10. In Fig. 2 ,
+we display the mean of gradient norms in each layer during
+the first 1/6 epoch of training process despite the first encod￾ing layer and the last decoding layer. And we find that when
+τdecay = 0, the curve of gradient norm behaves much steady,
+which perfectly supports our theory. It should be emphasized
+that τdecay cannot be set as 0 because it will prevent the in￾formation from propagating along temporal dimension and
+cause serious degradation. So, we evaluate our method in the
+condition that τdecay = 0. For example, when τdecay = 0.25
+and 0.5, the gradient norm increases very slowly as the net￾work deepens, which will not influence the training process.
+The results strongly support our results that can avoid gradi￾ent vanishing or explosion in deep SNNs.
+0 4 8 12 16
+Layer
+10
+5
+10
+4
+decay = 0
+decay = 0.25
+decay = 0.5
+Figure 2: Gradient norm throughout the plain network
+with tdBN.
+Scaling factors
+As we all know, a key for SNN model to obtain competitive
+performance is to set suitable threshold to maintain firing
+rates and reduce information loss. To achieve this, we in￾troduce two scaling factors to the normalization implements
+in tdBN, which is meant to balance the pre-activations and
+threshold. In the early training, with two scaling factors—α
+and Vth, we normalize the pre-activations to N(0, Vth
+2
+) by
+initializing the trainable parameters λ and β with 1 and 0.
+First, we propose Theorem 2 to explain the relations be￾tween per-activations and membrane potential of neurons,
+which helps to understand why our method works.
+Theorem 2. With the iterative LIF model, assuming the pre￾activations x
+t ∼ N(0, σin
+2
+), we have the membrane poten￾tial u
+t ∼ N(0, σout
+2
+) and σout
+2 ∝ σin
+2
+.
+Proof. The proof of Theorem 2 is presented in Supplemen￾tary Material B.
+2 0 2
+Value
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+(a)
+x
+t N(0, 1/4), Vth = 1
+u
+t
+2 0 2
+Value
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+(b)
+x
+t N(0, 1/2), Vth = 1
+u
+t
+0 5
+Value
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+(c)
+x
+t N(0, 1), Vth = 1
+u
+t
+Figure 3: Distributions of membrane potential u
+t with
+different variances of pre-activations x
+t
+We verify the Theorem 2 by visualized analysis. In the
+experiment, we set τdecay = 0.25 and display the distri￾bution of membrane potential with different pre-activations
+variance σin
+2
+. The results are shown in Fig. 3. We find
+the high degree of similarity between the distributions of
+pre-activations and membrane potential, which supports the
+proposition.
+Next, we analyze the forward information propagation
+mechanism with the LIF model.
+0.00 0.25 0.50 0.75 1.00
+Firing rates
+0
+2000
+4000
+6000
+8000
+10000
+(a)
+x
+t N(0, 1/16), Vth = 1
+0.00 0.25 0.50 0.75 1.00
+Firing rates
+0
+1000
+2000
+3000
+4000
+5000
+(b)
+x
+t N(0, 1), Vth = 1
+0.00 0.25 0.50 0.75 1.00
+Firing rates
+0
+500
+1000
+1500
+2000
+(c)
+x
+t N(0, 16), Vth = 1
+Figure 4: Distributions of neurons’ firing rates with dif￾ferent variances of pre-activations x
+t
+.
+During the forward, when membrane potential reaches the
+threshold, neurons will fire a spike and make the informa￾tion propagate layer by layer. With Theorem 2 and Eq. (3)
+, we can approximate the possibilities of neurons firing a
+spike P(u
+t > Vth). It’s obvious that it is a positive corre￾lation between P(u
+t > Vth) and the variance of membrane
+|| || /
+2
+Frequency
+Numbers of nuerons
+potential σout
+2
+as well as σin
+2
+. So, we adopt the scaling fac￾tors to adjust the distributions of pre-activations to maintain
+the firing rates in deep SNNs. Fig. 4 shows the distribu￾tion of neurons’ firing rates when we set variances of pre￾activations x
+t ∼ N(0, σin
+2
+) as different values. Because of
+the decay mechanisms, even a neuron receives positive input
+each time, it may fire no spike (Fig. 4(a)), which means neu￾rons in next layer only receive few nonzero pre-synaptic in￾puts, making spikes disappear in deep SNNs and preventing
+signal from propagating forward. Another situation is that a
+neuron fires spikes all the time (Fig. 4(c)), which means the
+outputs of some neurons to be insensitive to the change of
+pre-activations and causes increase of computation.
+In conclusion, to balance pre-synaptic input and thresh￾old to maintain the firing rates, we utilize the scaling fac￾tors to control the variance of membrane potential and pre￾activations, which alleviates its dependence on the threshold.
+So, we normalize the pre-activations to N(0, Vth
+2
+).
+Deep Spiking Residual Network
+ResNet is one of the most popular architectures o tackle with
+the problem of degradation when networks go deep. With
+the shortcut connections, (He et al. 2016) adds identity map￾ping between layers, which enables the training of very deep
+neural networks. Inspired by the residual learning, we pro￾pose our deep spiking residual network, which replaces the
+BN layer with our tdBN and changes the shortcut connection
+to achieve better performance.
+Basic block ResNet in ANNs is built with some basic
+blocks. Fig. 5(a) shows a form of traditional basic blocks in
+ResNet-ANN. It is implemented in relatively shallow resid￾ual networks, which consists of two layers with 3 × 3 con￾volution kernel followed by a BN layer and the ReLU ac￾tivation. On the basis, we propose the basic block of our
+deep spiking residual network. As shown in Fig. 5(b), we
+replace the ReLU activation with LIF model and replace the
+BN layer with our tdBN. Moreover, we change the shortcut
+connection and add a tdBN layer before the final addition.
+Hence, expect that the hyper-parameters α in tdBN layers
+before the final activation layer or in the shortcut are set as
+1/
+√
+2, the other tdBN layers’ hyper-parameter α is defined
+as 1. It guarantees the input distribution of each activation
+will satisfy N(0, Vth
+2
+) at the beginning of training.
+Network architecture We build the deep spiking Residual
+network with our basic blocks. The first encoding layer re￾ceives the inputs and performs downsampling directly with
+convolution kernel and a stride of 2. Then, the spiking ac￾tivities propagate through basic blocks. Similar to ResNet￾ANN, we double the number of channels when the feature
+map is halved. After average pooling or full-connected layer
+if necessary, the last decoding layer is a fully-connected
+layer followed by softmax function.
+Experiment
+We test our deep residual SNNs on static non-spiking
+datasets (CIFAR-10, ImageNet) and neuromorphic datasets
+3×3 Conv
+BN
+ReLU
+3×3 Conv
+ReLU
+BN
++
+Real-value inputs
+Real-value outputs
+3×3 Conv
+tdBN,𝛼 = 1
+LIF
+3×3 Conv
+LIF
+tdBN,𝛼 = 1/ 2
++
+Spiking inputs
+Spiking outputs
+(a) (b) Spike trains
+tdBN,𝛼 = 1/ 2
+Conversion
+Add
+Conversion
+Figure 5: Different basic blocks between traditional
+ResNet-ANN (a) and our ResNet-SNN with tdBN (b).
+(DVS-gesture, DVS-CIFAR10). And we compare our re￾sults with SNN models to demonstrate the advantages of
+our method on both accuracy and the number of timesteps.
+The dataset introduction, pre-processing, parameter config￾uration, training details and results analysis are summarized
+in Supplementary Material C.
+Experiment on static datasets
+Experiments on static datasets include CIFAR-10 and Im￾ageNet, which serve as standard image recognition bench￾marks. We test our ResNet-SNN with different timesteps,
+sizes and depths. With very few timesteps, our models sig￾nificantly reduce the amount of computation compared with
+ANNs with same architectures due to sparse spikes. The de￾tailed analysis is presented in Supplementary Material D.
+CIFAR-10 CIFAR-10 is an image dataset with 50000
+training images and 10000 testing images with size of 32 ×
+32, which all belong to 10 classes. In this experiment, we
+use ResNet-19 with timesteps of 2, 4, 6.
+Our results are shown in the Table 1. Before us, SNNs us￾ing the ANN-SNN converted method report best accuracy
+on CIFAR-10. However, to achieve good performance, con￾verted SNNs usually require more than 100 timesteps. In
+this work, our model achieves state-of-the-art performance
+(93.15% top-1 accuracy with only 6 timesteps) on CIFAR-
+10, which not only greatly reduces latency and computation
+cost compared with other SNN models.
+ImageNet ImageNet (Deng et al. 2009) contains 1.28 mil￾lion training images and 50000 validating images. On Ima￾geNet, we test ResNet-34 with standard size and large size.
+The large model doubles the channels compared with the
+standard one and achieves 67.05% top-1 accuracy with
+just 6 timesteps. Also, we use ResNet-50 to explore the
+very deep directly-trained SNNs and achieve 64.88% top-1
+accuracy. Similar to ResNet-ANN, we observe the enhance￾ment of accuracy between ResNet-34 and ResNet-50, which
+Dataset Model Methods Architecture TimeStep Accuracy
+CIFAR-10
+(Sengupta et al. 2019) ANN-SNN VGG-16 2500 91.55%
+(Hu et al. 2018) ANN-SNN ResNet-44 350 92.37%
+(Rathi et al. 2020) Hybird Training VGG-16 200 92.02%
+(Lee et al. 2020) Spike-based BP ResNet-11 100 90.95%
+(Wu et al. 2019) STBP 5 Conv, 2Fc 12 90.53%
+our model STBP-tdBN ResNet-19
+6 93.16%
+4 92.92%
+2 92.34%
+ImageNet
+(Sengupta et al. 2019) ANN-SNN VGG-16 2500 69.96%
+(Sengupta et al. 2019) ANN-SNN ResNet-34 2500 65.47%
+(Han, Srinivasan, and Roy 2020) ANN-SNN ResNet-34 1024 66.61%
+(Hu et al. 2018) ANN-SNN ResNet-34 768 71.61%
+(Rathi et al. 2020) Hybird Training VGG-16 250 65.19%
+(Rathi et al. 2020) Hybird Training ResNet-34 250 61.48%
+our model STBP-tdBN
+ResNet-34 6 63.72%
+ResNet-50 6 64.88%
+ResNet-34(large) 6 67.05%
+Table 1: Comparisons with SNNs on CIFAR-10 & ImageNet
+shows the deeper residual spiking networks may perform
+better in complex recognition tasks.
+Before us, the directly-trained full-spiking SNNs have
+never reported competitive results on ImageNet while our
+methods make a breakthrough. Compared with early works,
+our methods achieve higher accuracies with fewer timesteps.
+The results are shown in Table 1.
+Experiment on neuromorphic datasets
+Compared with non-spiking static datasets, neuromorphic
+datasets contain more temporal information, which are more
+suitable for SNNs to demonstrate their advantages. Previous
+work (Wu et al. 2019) only tests the MLP-SNN with STBP
+on N-MNIST and report the state-of-art results (98.57% ac￾curacy). However, N-MNIST is too simple for our deep
+directly-trained SNNs with residual structures. So, we adopt
+two challenging neuromorphic datasets—DVS-Gesture and
+DVS-CIFAR10.
+DVS-Gesture DVS-Gesture (Amir et al. 2017) is a collec￾tion of moving gestures performed by 29 different individu￾als belonging to 11 classes, which is captured by DVS cam￾eras under three lighting conditions. We set timestep T to
+be 40. In each timestep, the network receives only one slice
+of the event stream, which means the first 1200ms of each
+action is used for training or testing. In this experiment, we
+use ResNet-17 and achieve an accuracy of 96.87%, which is
+the state-of-the-art result for directly-trained SNNs on DVS￾Gesture. We compare our results with other related works on
+DVS-Gesture, as shown in Table 2.
+Model Methods Accuracy
+(He et al. 2020) STBP 93.40%
+(Shrestha and Orchard 2018) SLAYER 93.64%
+(Kugele et al. 2020) ANN 95.68%
+(Amir et al. 2017) BPTT 94.59%
+our model STBP-tdBN 96.87%
+Table 2: Accuracy comparisons on DVS-Gesture
+DVS-CIFAR10 DVS-CIFAR10 (Li et al. 2017) is a neu￾romorphic dataset converted from famous CIFAR-10 to its
+dynamic form. It consists of 1000 images in the format of
+spike train per class. With the noisy environment, it’s also a
+challenging recognition task similar to DVS-Gesture. With
+ResNet-19, our methods achieve the best performance with
+67.8% accuracy in 10 timesteps. Table 3 compares our re￾sults with other models.
+Model Methods Accuracy
+(Sironi et al. 2018) HATS 52.40%
+(Kugele et al. 2020) Streaming rollout ANN 66.75%
+(Ramesh et al. 2019) DART 65.78%
+(Wu et al. 2019) STBP 60.5%
+our model STBP-tdBN 67.8%
+Table 3: Accuracy comparisons on DVS-CIFAR10
+Conclusion
+In this paper, we present a normalization method enabling
+directly-trained deep SNNs with high performance. We
+combine the gradient norm theory and prove that this
+method can effectively balance the input stimulus and
+neuronal threshold during training, thereby facilitating the
+learning convergence. On this basis, by further introducing
+the shortcut connection, we greatly extend directly-trained
+SNNs from a common shallow structure (less than ten lay-
+ers) to a very deep structure (more than fifty layers). Fi￾nally, the model is evaluated on both large-scale static image
+datasets and neuromorphic datasets. Comparing with other
+SNN models, we achieve a high accuracy on CIFAR-10 and
+ImageNet with a significantly small inference latency. To
+our best knowledge, it is the first work to report a directly￾trained and very deep SNNs on ImageNet. On neuromorphic
+datasets, our model can efficiently process temporal-spatial
+information and achieve state-of-the-art performance.
+In summary, this work provides a feasible directly-trained
+scheme for deep SNNs. It maintains high efficiency of
+spike-based communication mechanism and enables SNNs
+to solve more complex large-scale classification tasks, which
+may benefit the implementations on the neuromorphic hard￾ware and promote the practical applications of SNNs.
+Acknowledgment
+This work is partially supported by National Key R&D Pro￾gram of China (No.2018YFE0200200,2018AAA0102600),
+Beijing Academy of Artificial Intelligence (BAAI), and a
+grant from the Institute for Guo Qiang of Tsinghua uni￾versity, and in part by the Science and Technology Major
+Project of Guangzhou (202007030006), and the key scien￾tific technological innovation research project by Ministry
+of Education, and the open project of Zhejiang laboratory.
+References
+Amir, A.; Taba, B.; Berg, D.; Melano, T.; McKinstry, J.;
+Di Nolfo, C.; Nayak, T.; Andreopoulos, A.; Garreau, G.;
+Mendoza, M.; Kusnitz, J.; Debole, M.; Esser, S.; Delbruck,
+T.; Flickner, M.; and Modha, D. 2017. A Low Power, Fully
+Event-Based Gesture Recognition System. In Proceedings
+of the IEEE Conference on Computer Vision and Pattern
+Recognition (CVPR).
+Ba, J. L.; Kiros, J. R.; and Hinton, G. E. 2016. Layer Nor￾malization. arXiv preprint arXiv:1607.06450 .
+Chen, Z.; Deng, L.; Wang, B.; Li, G.; and Xie, Y. 2020. A
+Comprehensive and Modularized Statistical Framework for
+Gradient Norm Equality in Deep Neural Networks. IEEE
+Transactions on Pattern Analysis and Machine Intelligence
+1–1.
+Davies, M.; Srinivasa, N.; Lin, T.; Chinya, G.; Cao, Y.; Cho￾day, S. H.; Dimou, G.; Joshi, P.; Imam, N.; Jain, S.; Liao, Y.;
+Lin, C.; Lines, A.; Liu, R.; Mathaikutty, D.; McCoy, S.; Paul,
+A.; Tse, J.; Venkataramanan, G.; Weng, Y.; Wild, A.; Yang,
+Y.; and Wang, H. 2018. Loihi: A Neuromorphic Manycore
+Processor with On-Chip Learning. IEEE Micro 38(1): 82–
+99.
+Deng, J.; Dong, W.; Socher, R.; Li, L.; Kai Li; and Li
+Fei-Fei. 2009. ImageNet: A large-scale hierarchical image
+database. In 2009 IEEE Conference on Computer Vision and
+Pattern Recognition, 248–255.
+Diehl, P. U.; Neil, D.; Binas, J.; Cook, M.; Liu, S.; and
+Pfeiffer, M. 2015. Fast-classifying, high-accuracy spiking
+deep networks through weight and threshold balancing. In
+2015 International Joint Conference on Neural Networks
+(IJCNN), 1–8.
+Han, B.; Srinivasan, G.; and Roy, K. 2020. RMP-SNN:
+Residual Membrane Potential Neuron for Enabling Deeper
+High-Accuracy and Low-Latency Spiking Neural Network.
+In Proceedings of the IEEE Conference on Computer Vision
+and Pattern Recognition (CVPR).
+He, K.; Zhang, X.; Ren, S.; and Sun, J. 2016. Deep Resid￾ual Learning for Image Recognition. In Proceedings of the
+IEEE Conference on Computer Vision and Pattern Recogni￾tion (CVPR).
+He, W.; Wu, Y.; Deng, L.; Li, G.; Wang, H.; Tian, Y.; Ding,
+W.; Wang, W.; and Xie, Y. 2020. Comparing SNNs and
+RNNs on Neuromorphic Vision Datasets: Similarities and
+Differences. arXiv preprint arXiv:2005.02183 .
+Hu, Y.; Tang, H.; Wang, Y.; and Pan, G. 2018. Spiking Deep
+Residual Network. arXiv preprint arXiv:1805.01352 .
+Hunsberger, E.; and Eliasmith, C. 2015. Spiking Deep Net￾works with LIF Neurons. arXiv preprint arXiv:1510.08829
+.
+Ioffe, S.; and Szegedy, C. 2015. Batch Normalization: Ac￾celerating Deep Network Training by Reducing Internal Co￾variate Shift. arXiv preprint arXiv:1502.03167 .
+Jin, Y.; Zhang, W.; and Li, P. 2018. Hybrid Macro/Micro
+Level Backpropagation for Training Deep Spiking Neural
+Networks. In Advances in Neural Information Processing
+Systems 31, 7005–7015.
+Kugele, A.; Pfeil, T.; Pfeiffer, M.; and Chicca, E. 2020. Ef-
+ficient Processing of Spatio-Temporal Data Streams With
+Spiking Neural Networks. Frontiers in Neuroscience 14:
+439.
+Lee, C.; Sarwar, S. S.; Panda, P.; Srinivasan, G.; and Roy, K.
+2020. Enabling Spike-Based Backpropagation for Training
+Deep Neural Network Architectures. Frontiers in Neuro￾science 14: 119.
+Lee, J. H.; Delbruck, T.; and Pfeiffer, M. 2016. Train￾ing Deep Spiking Neural Networks Using Backpropagation.
+Frontiers in Neuroscience 10: 508.
+Li, H.; Liu, H.; Ji, X.; Li, G.; and Shi, L. 2017. CIFAR10-
+DVS: An Event-Stream Dataset for Object Classification.
+Frontiers in Neuroscience 11: 309.
+Merolla, P. A.; Arthur, J. V.; Alvarez-Icaza, R.; Cassidy,
+A. S.; Sawada, J.; Akopyan, F.; Jackson, B. L.; Imam, N.;
+Guo, C.; Nakamura, Y.; Brezzo, B.; Vo, I.; Esser, S. K.; Ap￾puswamy, R.; Taba, B.; Amir, A.; Flickner, M. D.; Risk,
+W. P.; Manohar, R.; and Modha, D. S. 2014. A million
+spiking-neuron integrated circuit with a scalable communi￾cation network and interface. Science 345(6197): 668–673.
+Ramesh, B.; Yang, H.; Orchard, G. M.; Le Thi, N. A.;
+Zhang, S.; and Xiang, C. 2019. DART: Distribution Aware
+Retinal Transform for Event-based Cameras. IEEE Trans￾actions on Pattern Analysis and Machine Intelligence 1–1.
+Rathi, N.; Srinivasan, G.; Panda, P.; and Roy, K. 2020. En￾abling Deep Spiking Neural Networks with Hybrid Conver￾sion and Spike Timing Dependent Backpropagation. arXiv
+preprint arXiv:2005.01807 .
+Roy, K.; Jaiswal, A.; and Panda, P. 2019. Towards spike￾based machine intelligence with neuromorphic computing.
+Nature 575(7784): 607-617.
+Sengupta, A.; Ye, Y.; Wang, R.; Liu, C.; and Roy, K. 2019.
+Going Deeper in Spiking Neural Networks: VGG and Resid￾ual Architectures. Frontiers in Neuroscience 13: 95.
+Shrestha, S. B.; and Orchard, G. 2018. SLAYER: Spike
+Layer Error Reassignment in Time. In Bengio, S.; Wallach,
+H.; Larochelle, H.; Grauman, K.; Cesa-Bianchi, N.; and Gar￾nett, R., eds., Advances in Neural Information Processing
+Systems 31, 1412–1421.
+Sironi, A.; Brambilla, M.; Bourdis, N.; Lagorce, X.; and
+Benosman, R. 2018. HATS: Histograms of Averaged Time
+Surfaces for Robust Event-Based Object Classification. In
+Proceedings of the IEEE Conference on Computer Vision
+and Pattern Recognition (CVPR), 1731–1740.
+Stromatias, E.; Neil, D.; Pfeiffer, M.; Galluppi, F.; Furber,
+S. B.; and Liu, S.-C. 2015. Robustness of spiking Deep Be￾lief Networks to noise and reduced bit precision of neuro￾inspired hardware platforms. Frontiers in Neuroscience 9:
+222.
+Wu, Y.; Deng, L.; Li, G.; Zhu, J.; and Shi, L. 2018. Spatio￾Temporal Backpropagation for Training High-Performance
+Spiking Neural Networks. Frontiers in Neuroscience 12:
+331.
+Wu, Y.; Deng, L.; Li, G.; Zhu, J.; Xie, Y.; and Shi, L. 2019.
+Direct training for spiking neural networks: Faster, larger,
+better. In Proceedings of the AAAI Conference on Artificial
+Intelligence, volume 33, 1311–1318.
+Wu, Y.; and He, K. 2018. Group normalization. In Pro￾ceedings of the European Conference on Computer Vision
+(ECCV), 3–19.
+Supplementary Material
+A Codes for Algorithms
+In this section, we present the detailed codes for (1)
+threshold-dependent batch normalization (algorithm 1) (2)
+overall training algorithm (algorithm 2).
+Algorithm 1 Threshold-dependent BatchNorm
+In the Training:
+Input: weighted outputs from last layer
+x ∈ [T imestep, Batch size, Cout, H, W].
+Output: normalized pre-synaptic inputs to the next layer
+y ∈ [T imestep, Batch size, Cout, H, W].
+Parameters: two trainable parameters λ, β ∈ [Cout],
+threshold Vth, hyper-parameter α.
+Initialize:λ ← 1, β ← 0.
+1: µtra = mean(x[cout :])
+2: σtra
+2 = mean(square(x[cout :] − µtra))
+3: xˆ =
+αVth(x−µtra)
+√
+σ
+2
+tra+
+4: y = λxˆ + β
+In the Inference:
+Input: convolution kernel W ∈ [Cout, Cin, H, W], bias
+B ∈ [Cout], spiking outputs from last layer o ∈
+[T imestep, Batch size, Cin, H, W].
+Output: pre-synaptic inputs to the next layer y
+0 ∈
+[T imestep, Batch size, Cout, H, W].
+Parameters: two trainable parameters from tdBN for train￾ing λ, β ∈ [Cout], threshold Vth, hyper-parameter α.
+1: µinf ← E(µtra)
+2: σinf
+2 ← E(σtra
+2
+)
+3: W0 = λ
+αVthW
+√σinf
+2 +
+4: B0 = λ
+αVth(B−µinf )
+√σ
+2
+inf +
++ β
+5: for t = 1 to T do
+6: y
+0 [t] = W0 ~ o[t] + B0
+7: end for
+B Proofs of Theorems
+Theorem 1. Consider an SNN with T timesteps and the j
+th
+block’s jacobian matrix at time t is denoted as Jj
+t
+. When
+τdecay is equal to 0, if we fix the second moment of input
+vector and the output vector to Vth
+2
+for each block between
+two tdBN layers, we have φ(Jj
+t
+(Jj
+t
+)
+T
+) ≈ 1 and the training
+of SNN can avoid gradient vanishing or explosion.
+Proof. Consider an SNN with T time step. When τdecay is
+equal to 0, the membrane potential only depends on the in￾put signal,so the gradient transforms independently in each
+timestep.
+At the timestep t, we consider the SNN as a series of
+blocks between two tdBN layers
+f
+t
+(x) = fi,θ
+t
+i
+◦ fi
+t
+−1,θi−1 ◦ · · · ◦ f1
+t
+,θ1
+(x), (19)
+Algorithm 2 Overall Training Algorithm
+Input: input X, label vector Y .
+Output: parameters in layer i Wi
+,Bi
+, prediction result Q.
+1: function NeuronU pdate(u, I)
+2: for t = 1 to T do
+3: u[t] = τdecayu[t − 1] + I[t]
+4: end for
+5: if u[t] < Vth then
+6: o[t] = 0
+7: else
+8: o[t] = 1
+9: u[t] = 0
+10: end if
+11: return o
+12: end function
+In the Training:
+1: Forward:
+2: for t = 1 to T do
+3: x
+1
+[t] = W1 ~ X[t] + B1
+4: end for
+5: y
+1 ← tdBN for training(x
+1
+)
+6: \\The training phase of Algorithm 1
+7: o
+1 ← NeuronU pdate(u
+1
+, y1
+)
+8: for i = 2 to N do
+9: for t = 1 to T do
+10: x
+i
+[t] = Wi ~ o
+i−1
+[t] + Bi
+11: end for
+12: y
+i ← tdBN for training(x
+i
+)
+13: o
+i ← NeuronU pdate(u
+i
+, yi
+)
+14: end for
+15: Q ← Decodinglayer(o
+N )
+16: L ← ComputeLoss(Y, Q)
+17: Backward:
+18: ∂L
+∂oi
+,
+∂u
+∂L
+i ← Autograd
+In the Inference:
+1: x
+1 ← tdBN for inference(W1, B1, X)
+2: u
+1
+, o1 ← NeuronU pdate(u
+1
+, x1
+)
+3: for i = 2 to N do
+4: x
+i ← tdBN for inference(Wi
+, Bi
+, xi−1
+)
+5: \\The inference phase of Algorithm 1
+6: o
+i ← NeuronU pdate(u
+i
+, xi
+)
+7: end for
+8: Q ← Decodinglayer(o
+N )
+where fj,θ
+t
+j
+represents the function of j
+th block at timestep
+t and define its input-output jacobian matrix as ∂f t
+∂f t
+j
+j−1
+= Jj
+t
+.
+For each block, the second moment of input vector and the
+output vector are fixed to Vth
+2
+, according to Lemma 2, we
+have
+φ(Jj
+t
+(Jj
+t
+)
+T
+) = 1. (20)
+So for each time step, according to Lemma 1, SNN with
+tdBN at timestep t can achieve ”Block Dynamic Isometry”,
+which means E[k ∆θi
+tk 2
+2
+] at any moment will not increase or
+diminish sharply when the SNN goes deep. And the ∆θi can
+be defined by
+∆θi =
+T
+X
+t=1
+∆θi
+t
+. (21)
+Under the condition that each ∆θi
+t
+at any timestep t satisfies
+the i.i.d assumption and E[∆θi
+t
+] ≈ 0, we have
+E[(∆θi)
+2
+] ≈
+T
+X
+t=1
+E[(∆θi
+t
+)
+2
+]. (22)
+So, the total E[k ∆θik
+2
+2
+] will remain stable as well as
+E[k ∆θi
+tk 2
+2
+], which means the SNN can avoid gradient van￾ishing or explosion.
+Theorem 2. With the iterative LIF model, assuming the pre￾activation x
+t ∼ N(0, σin
+2
+), we have the membrane potential
+u
+t ∼ N(0, σout
+2
+) and σout
+2 ∝ σin
+2
+.
+Proof. The iterative LIF model can be expressed by
+u
+t = τdecayu
+t
+(1 − o
+t−1
+) + x
+t
+, (23)
+o
+t =
+
+1
+0
+if
+otherwise
+u
+t > Vth
+, (24)
+where u
+t
+is the membrane potential of the neuron at timestep
+t, o
+t
+is the binary spike and τdecay is the potential decay
+constant. So considering the membrane potential u
+t
+at the
+moment of t and assuming its last firing time is time t
+0 , we
+have
+u
+t =
+t X
+p=t
+0
+τdecay
+t−p
+x
+p
+, (25)
+where x
+p denotes the pre-activation at p moment and τdecay
+represents the decay constant. Because τdecay is a relative
+tiny constant(e.g. 0.25) in our SNN model, so
+u
+t ≈ τdecayx
+t−1 + x
+t
+. (26)
+Assume each x
+t
+is i.i.d. sample from N(0, σin
+2
+), so the
+membrane potential u
+t ∼ N(0, σout
+2
+) and σout
+2 ∝ σin
+2
+. With
+Fig. 3 in main paper, we find the high degree of similarity
+between the distributions of pre-activations and membrane
+potential, which supports the theorem.
+Table 4: Network architectures of our ResNet-SNN
+17-layers 19-layers 34-layers(standard/large) 50-layers
+conv1 3 × 3, 64, s1 3 × 3, 128, s1 7 × 7, 64/128, s2 7 × 7, 64, s2
+block1  3
+3
+×
+×
+3
+3
+,
+,
+64
+64 
+∗
+× 3
+
+3
+3
+×
+×
+3
+3
+,
+,
+128
+128  × 3
+
+3
+3
+×
+×
+3
+3
+,
+,
+64
+64
+/
+/
+128
+128 
+∗
+× 3
+ 
+1
+1
+3
+×
+×
+×
+1
+1
+3
+,
+,
+,
+256
+64
+64 !
+∗
+× 3
+block2  3
+3
+×
+×
+3
+3
+,
+,
+128
+128 
+∗
+× 4
+
+3
+3
+×
+×
+3
+3
+,
+,
+256
+256 
+∗
+× 3
+
+3
+3
+×
+×
+3
+3
+,
+,
+128
+128
+/
+/
+256
+256 
+∗
+× 4
+ 
+1
+3
+1
+×
+×
+×
+1
+3
+1
+,
+,
+,
+128
+128
+512 !
+∗
+× 4
+block3  3
+3
+×
+×
+3
+3
+,
+,
+512
+512 
+∗
+× 2
+
+3
+3
+×
+×
+3
+3
+,
+,
+256
+256
+/
+/
+512
+512 
+∗
+× 6
+ 
+1
+1
+3
+×
+×
+×
+1
+1
+3
+,
+,
+,
+1024
+256
+256 !
+∗
+× 6
+block4  3
+3
+×
+×
+3
+3
+,
+,
+512
+512
+/
+/
+1024
+1024 
+∗
+× 3
+ 
+1
+1
+3
+×
+×
+×
+1
+1
+3
+,
+,
+,
+2048
+512
+512 !
+∗
+× 3
+average pool/2,256-d fc
+11-d fc,softmax 10-d fc,softmax average pool,1000-d fc,softmax
+* means the first basic block in the series perform downsampling directly with convolution kernels and a stride of 2.
+C Details of Experiments
+Network architectures
+In our experiment, we test ResNet-19 on CIFAR-10 and
+DVS-CIFAR10, ResNet-34 (standard/large) and ResNet-50
+on ImageNet, ResNet-17 on DVS-Gessture. The detailed
+network architectures are shown in Table 4.
+Dataset introduction and pre-processing
+CIFAR-10 CIFAR-10 is an image dataset with 50000
+training images and 10000 testing images with size of 32 ×
+32, which all belong to 10 classes. We randomly flip and
+crop every image. And every image is normalized by sub￾tracting the global mean value of pixel intensity and dev￾ided by the standard variance along RGB channels during
+the data pre-processing.
+ImageNet ImageNet contains 1.28 million training im￾ages and 50000 validating images. Our data pre-processing
+uses the usual practice, which randomly crops and flips the
+224×224 image with general normalization method as what
+we use in CIFAR-10.
+DVS-Gesture DVS-Gesture is a collection of moving ges￾tures performed by 29 different individuals, which is cap￾tured by DVS cameras under three lighting conditions. It
+contains 1342 records from 23 subjects in training set and
+288 examples from other 6 subjects in testing data. Belong￾ing to 11 classes, each instance in DVS-Gesture is a stream
+of events with size of 128 × 128. In this experiment, we
+downsize the event steam to 32 × 32 and sample a slice ev￾ery 30ms during both training and testing process. We set
+timestep T to be 40. In each time step, the network receives
+only one slice, which means the first 1200ms of each action
+is used for training or testing.
+DVS-CIFAR10 DVS-CIFAR10 is a neuromorphic dataset
+converted from famous CIFAR-10 to its dynamic form. It
+consists of 1000 images in the format of spike train per class
+with total 10 classes. In our experiment, the dataset is split
+into a training set with 9000 images and testing set with 1000
+images. We downsample the original 128 × 128 image size
+to 42 × 42 reduce the temporal resolution by accumulating
+the spike train within every 5ms.
+Training settings
+Optimizer For all of our experiments, we use the stochas￾tic gradient descent (SGD) optimizer with initial learning
+rate r = 0.1 and momentum 0.9. For ResNet-19 and
+ResNet-34 (standard/large), we let r decay to 0.1r every 35
+epoches. For ResNet-50, we let r decay to 0.1r every 45
+epoches. For ResNet-17, we let r decay to 0.1r every 1000
+epoches.
+Acceleration methods All of the models are programmed
+on Pytorch. And to accelerate the training process and re￾duce memory cost, we adopt the mixed precision training.
+Some models should be trained on multi-GPU, so we use
+the sync-BN technique to reduce the influence of small batch
+size. The batch sizes of every experiment are shown in Table
+5.
+Table 5: Batch size in experiments
+Network Architecture Batch size per GPU GPU
+ResNet-17 40 1
+ResNet-19 36 1
+ResNet-34(standard) 24 8
+ResNet-34(large) 10 8
+ResNet-50 10 8
+D Analysis of Computation Reduction
+Computing patterns of SNNs and ANNs
+As we all know, SNN cannot beat ANN on accuracy com￾parisons of most recognition tasks. However, compared with
+ANNs, SNNs are much more energy-efficient due to their
+binary spikes and event-driven neural operations on the spe￾cialized hardware. For ANNs, the activations are determined
+by multiply-accumulate (MAC) operations. For SNNs, the
+compute cost is mainly the accumulate (AC) operations,
+which has two main differences: (1) In the fully-spiking
+SNN, there is no multiplication operation because of bi￾nary spike inputs. With Eq. (5) and (6), the pre-activations
+x
+t =
+P j wjo
+t
+(j) and o
+t
+(j) = 0 or 1, which means x
+t
+is an accumulation of weights wj in fact. So most com￾pute operations we need in SNNs are additions not the mul￾tiplications. (2) The event-driven operation means that for
+each neuron the synaptic computation only occurs when re￾quired. If there is no spike received, there is no need to com￾pute. With these characteristics, despite that SNNs need to
+be evaluated over T timesteps, their computation costs are
+still lower than ANNs because the AC operations cost less
+than MAC operations and the sparse spikes decrease SNNs’
+computing operations a lot.
+Computation efficiency of SNNs
+In Fig. 6, we analyze the average numbers of spikes per neu￾ron in each layer of ResNet-19 on CIFAR-10 and ResNet-
+34(large) on ImageNet. With much fewer timesteps, the
+spikes are surprisingly sparse. As the network goes deeper,
+the firing rates also decrease slowly. With these data, we can
+estimate how many AC operations our models need during
+a single inference process (ignore the computation of acti￾vation functions in ANNs and membrane potential update in
+SNNs). The results are shown in Table 6.
+Table 6: Computation comparisons between SNNs and
+ANNs
+Models Additions Multiplications
+SNN ResNet-19 1.8 × 109 3.4 × 107
+ResNet-34(large) 1.2 × 1010 1.2 × 109
+ANN ResNet-19 2.2 × 109 2.2 × 109
+ResNet-34(large) 1.4 × 1010 1.4 × 1010
+It should be pointed out that our SNN models need multi￾plications because the first encoding layer converts real im￾ages to spikes and the last decoding layer uses spiking sig￾nals to predict output classes. The comparison shows that
+sparse spikes in our SNN models lead to significant com￾putation reduction and energy efficiency. Moreover, a single
+feed-forward pass in SNNs implemented in a neuromorphic
+architecture might be faster than an ANN implementation
+because of event-driven operations. So, with our much fewer
+timesteps, our SNNs can also show advantages on running
+time over ANNs of same architectures.
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
+Layer
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+(a) Spiking activities in each layer of ResNet-19
+1 2 3 4 5 6 7 8 9 101112131415161718192021222324252627282930313233
+Layer
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+(b) Spiking activities in each layer of ResNet-34(large)
+Figure 6: Spiking activities analysis of ResNet-19 and
+ResNet-34(large).
+Average Number of Spikes Per Neuron
