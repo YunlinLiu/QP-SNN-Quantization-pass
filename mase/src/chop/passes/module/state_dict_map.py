@@ -6,6 +6,7 @@ from typing import Tuple
 
 from chop.nn.quantizers.SNN.LSQ import LSQInteger
 from chop.nn.quantized.modules.roberta.attention import RobertaSelfAttentionLSQInteger
+from chop.nn.quantized.modules.vgg.conv2d import Conv2dReScaW
 from chop.nn.snn.modules.linear import LinearUnfoldBias
 from chop.nn.snn.modules.roberta.attention import RobertaSelfAttentionZIPTF
 
@@ -115,7 +116,21 @@ def lsqinteger_to_st_bif(LSQ: LSQInteger, ST_BIF: ST_BIFNode) -> ST_BIFNode:
     return ST_BIF
 
 
+def conv2d_to_rescaw(original: torch.nn.Conv2d, rescaw: Conv2dReScaW) -> Conv2dReScaW:
+    """Convert Conv2d to Conv2dReScaW with proper weight transfer"""
+    # Copy weights and bias from original Conv2d
+    rescaw.weight.data = original.weight.data.clone()
+    if original.bias is not None and rescaw.bias is not None:
+        rescaw.bias.data = original.bias.data.clone()
+    elif original.bias is not None:
+        # If original has bias but rescaw doesn't, we ignore it
+        pass
+    
+    return rescaw
+
+
 SPECIAL_CONVERT_PATTERNS = {
     (RobertaSelfAttentionLSQInteger, RobertaSelfAttentionZIPTF): attn_convert,
     (LSQInteger, ST_BIFNode): lsqinteger_to_st_bif,
+    (torch.nn.Conv2d, Conv2dReScaW): conv2d_to_rescaw,
 }
