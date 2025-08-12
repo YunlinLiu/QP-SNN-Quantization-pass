@@ -24,7 +24,7 @@ from models.quant_vgg import vgg_16_bn
 from models.quant_resnet_cifar import resnet_20
 
 
-parser = argparse.ArgumentParser("cifar10 quant")
+parser = argparse.ArgumentParser("cifar10 quant")   #参数解析器
 
 parser.add_argument(
     '--arch',
@@ -53,7 +53,7 @@ parser.add_argument(
 parser.add_argument(
     '--lr',
     type=float,
-    default=1e-1,
+    default=1e-3,
     help='init learning rate')
 
 parser.add_argument(
@@ -90,18 +90,18 @@ parser.add_argument(
     help='bitwidth of weight')
 
 args = parser.parse_args()
-print_freq = (256*50)//args.batch_size
+print_freq = (256*50)//args.batch_size #确定训练过程中多久打印一次日志，batch_size=256，则每50个batch打印一次
 
 common.record_config(args)
-now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-logger = common.get_logger(os.path.join(args.job_dir, 'logger'+now+'.log'))
+now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') #now = '2024-01-15-14-30-25' (示例)
+logger = common.get_logger(os.path.join(args.job_dir, 'logger'+now+'.log')) #日志文件创建，文件路径: ./log/logger2024-01-15-14:30:25.log
 
-if not os.path.isdir(args.job_dir):
+if not os.path.isdir(args.job_dir): #如果目录不存在，递归创建所有必要的父目录
     os.makedirs(args.job_dir)
 
 # use for loading pretrain model
 if len(args.gpu)>1:
-    name_base='module.'
+    name_base='module.' #在PyTorch中，当使用nn.DataParallel进行多GPU训练时，模型参数名会自动添加module.前缀。
 else:
     name_base=''
 
@@ -111,47 +111,47 @@ def train(epoch, train_loader, model, criterion, optimizer, scheduler):
     losses = common.AverageMeter('Loss', ':.4e')
     top1 = common.AverageMeter('Acc@1', ':6.2f')
 
-    model.train()
-    end = time.time()
+    model.train()   # 设置模型为训练模式
+    end = time.time()   # 记录开始时间
 
     for param_group in optimizer.param_groups:
         cur_lr = param_group['lr']
-    logger.info('learning_rate: ' + str(cur_lr))
+    logger.info('learning_rate: ' + str(cur_lr))    #获取当前学习率并记录到日志
 
-    num_iter = len(train_loader)
+    num_iter = len(train_loader)    # 总批次数
     for i, (images, target) in enumerate(train_loader):
-        data_time.update(time.time() - end)
+        data_time.update(time.time() - end) # 记录数据加载时间
         images = images.to(device)
         target = target.to(device)
 
         # compute outputy
         logits = model(images)
-        out = logits.mean(1)
+        out = logits.mean(1)     # SNN特有：时间维度平均，SNN输出形状通常是 [batch_size, time_steps, num_classes]，mean(1) 在时间维度(dim=1)上求平均，得到最终分类结果
         loss = criterion(out, target)
 
         # measure accuracy and record loss
-        prec1 = common.accuracy(out, target, topk=(1,))[0]
-        n = images.size(0)
-        losses.update(loss.item(), n)
-        top1.update(prec1.item(), n)
+        prec1 = common.accuracy(out, target, topk=(1,))[0]  # 表示计算 Top-1 准确率
+        n = images.size(0)  # batch_size，比如256
+        losses.update(loss.item(), n)   #losses.avg = 当前epoch中所有batch的加权平均损失
+        top1.update(prec1.item(), n)    #top1.avg = 当前epoch中所有batch的加权平均准确率
 
         # compute gradient and do SGD step
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        optimizer.zero_grad()   # 清零梯度
+        loss.backward()         # 反向传播计算梯度
+        optimizer.step()        # 更新模型参数
 
         # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+        batch_time.update(time.time() - end)    # 更新批次处理时间
+        end = time.time()                       # 重置时间记录
 
         if i % print_freq == 0:
-            logger.info(
-                'Epoch[{0}]({1}/{2}): Loss {loss.avg:.4f} Prec@1(1) {top1.avg:.2f}'
+            logger.info(       #Epoch[10](50/200): Loss 0.3245 Prec@1(1) 89.34#
+                'Epoch[{0}]({1}/{2}): Loss {loss.avg:.4f} Prec@1(1) {top1.avg:.2f}' #Prec@1 = Precision at 1 = Top-1 准确率
                 .format(epoch, i, num_iter, loss=losses,top1=top1))
 
     scheduler.step()
 
-    return losses.avg, top1.avg
+    return losses.avg, top1.avg # 返回整个epoch的平均损失和平均准确率
 
 def validate(epoch, val_loader, model, criterion, args):
     batch_time = common.AverageMeter('Time', ':6.3f')
@@ -160,7 +160,7 @@ def validate(epoch, val_loader, model, criterion, args):
 
     # switch to evaluation mode
     model.eval()
-    with torch.no_grad():
+    with torch.no_grad():   #验证时不需要梯度，只需要前向传播
         end = time.time()
         for i, (images, target) in enumerate(val_loader):
             images = images.to(device)
@@ -181,14 +181,14 @@ def validate(epoch, val_loader, model, criterion, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-        logger.info(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))
+        logger.info(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))    #Acc@1 91.250
 
     return losses.avg, top1.avg
 
 def main():
     cudnn.benchmark = True
     cudnn.enabled=True
-    logger.info("args = %s", args)
+    logger.info("args = %s", args)  #将所有命令行参数记录到日志文件
 
     # load training data
     if args.dataset == 'CIFAR10':
@@ -214,10 +214,10 @@ def main():
 
     # load model
     logger.info('==> Building model..')
-    logger.info('=== Bit width===:'+str(args.bit))
+    logger.info('=== Bit width===:'+str(args.bit))  #=== Bit width===:8
     model = eval(args.arch)(compress_rate=[0.]*100,num_bits=args.bit,num_classes=CLASSES)
     model.to(device)
-    logger.info(model)
+    logger.info(model)  #将完整的模型架构输出到日志
 
     # calculate model size
     # input_image_size=32
@@ -228,7 +228,7 @@ def main():
     # logger.info('Flops: %s' % (flops))
 
     if len(args.gpu) > 1:
-        device_id = []
+        device_id = []  #device_id = [0,1,2,3] (四GPU)
         for i in range((len(args.gpu) + 1) // 2):
             device_id.append(i)
         model = nn.DataParallel(model, device_ids=device_id).cuda()
@@ -255,7 +255,7 @@ def main():
 
     # load the checkpoint if it exists
     if args.resume:
-        checkpoint_dir = os.path.join(args.job_dir, 'checkpoint.pth.tar')
+        checkpoint_dir = os.path.join(args.job_dir, 'checkpoint.pth.tar')   #默认: ./log/checkpoint.pth.tar
         logger.info('loading checkpoint {} ..........'.format(checkpoint_dir))
         checkpoint = torch.load(checkpoint_dir)
         start_epoch = checkpoint['epoch'] + 1
@@ -264,9 +264,9 @@ def main():
         # deal with the single-multi GPU problem
         new_state_dict = OrderedDict()
         tmp_ckpt = checkpoint['state_dict']
-        if len(args.gpu) > 1:
-            for k, v in tmp_ckpt.items():
-                new_state_dict['module.' + k.replace('module.', '')] = v
+        if len(args.gpu) > 1:   #情况1: 当前使用多GPU
+            for k, v in tmp_ckpt.items():   
+                new_state_dict['module.' + k.replace('module.', '')] = v    #确保所有参数名都有module.前缀
         else:
             for k, v in tmp_ckpt.items():
                 new_state_dict[k.replace('module.', '')] = v
@@ -275,7 +275,7 @@ def main():
         logger.info("loaded checkpoint {} epoch = {}".format(checkpoint_dir, checkpoint['epoch']))
 
         # adjust the learning rate according to the checkpoint
-        for epoch in range(start_epoch):
+        for epoch in range(start_epoch):    #通过循环调用scheduler.step()来"追赶"到正确的学习率
             scheduler.step()
     else:
         logger.info('training from scratch')

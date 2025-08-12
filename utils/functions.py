@@ -7,7 +7,7 @@ import os
 import numpy as np
 import logging
 import math
-from models.quant_function import HardQuantizeConv
+from models.quant_function import ReScaWConv
 # from timm.models import resume_checkpoint
 
 def seed_all(seed=1029):
@@ -229,7 +229,7 @@ def split_weights(net):
             if m.bias is not None:
                 no_decay.append(m.bias)
 
-        elif isinstance(m, HardQuantizeConv):
+        elif isinstance(m, ReScaWConv):
             decay.append(m.weight)
 
             if hasattr(m, 'clip_val'):
