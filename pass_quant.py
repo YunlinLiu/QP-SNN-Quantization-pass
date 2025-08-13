@@ -1,6 +1,12 @@
+#!/usr/bin/env python3
+# This file combines test_ann2snn_module_vgg.py model transformation with quant.py training logic
+# to verify that pass-based quantization produces equivalent results to direct quantization
+
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+import sys
+from pathlib import Path
 import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 import numpy as np
@@ -13,18 +19,24 @@ import torch.utils.data.distributed
 from torch.utils.data import DataLoader
 
 from collections import OrderedDict
+
+# Import quantization pass modules (from test_ann2snn_module_vgg.py logic)
+from chop.passes.module.transforms.snn.ann2snn import ann2snn_module_transform_pass
+from chop.passes.module.transforms import quantize_module_transform_pass
+
+# Import training utilities (from quant.py logic)
 from utils import data_loaders
 from utils import common
 from utils.functions import split_weights
-# from thop import profile, clever_format
-import numpy as np
-import matplotlib.pyplot as plt
 
-from models.quant_vgg import vgg_16_bn
-from models.quant_resnet_cifar import resnet_20
+# Add project root to import pure_vgg model (from test_ann2snn_module_vgg.py logic)
+project_root = Path(__file__).resolve().parents[0]
+sys.path.append(str(project_root))  # For models.layers import in pure_vgg
+sys.path.append(str(project_root / "models"))  # For pure_vgg import
+from pure_vgg import vgg_16_bn
 
-
-parser = argparse.ArgumentParser("cifar10 quant")   #参数解析器
+# Argument parser (from quant.py logic)
+parser = argparse.ArgumentParser("cifar10 pass quant")   #参数解析器
 
 parser.add_argument(
     '--arch',
@@ -35,7 +47,7 @@ parser.add_argument(
 parser.add_argument(
     '--job_dir',
     type=str,
-    default='./log/',
+    default='./log_pass/',
     help='path for saving trained models')
 
 parser.add_argument(
@@ -80,11 +92,11 @@ parser.add_argument(
     default=8,
     type=int,
     metavar='N',
-    help='number of data loading workers (default: 16)')
+    help='number of data loading workers (default: 8)')
 
 parser.add_argument(
     '-bit',
-    default=8,
+    default=8,  # Changed back to 8 as requested
     type=int,
     metavar='N',
     help='bitwidth of weight')
@@ -94,18 +106,49 @@ print_freq = (256*50)//args.batch_size #确定训练过程中多久打印一次�
 
 common.record_config(args)
 now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') #now = '2024-01-15-14-30-25' (示例)
-logger = common.get_logger(os.path.join(args.job_dir, 'logger'+now+'.log')) #日志文件创建，文件路径: ./log/logger2024-01-15-14:30:25.log
+logger = common.get_logger(os.path.join(args.job_dir, 'logger'+now+'.log')) #日志文件创建，文件路径: ./log_pass/logger2024-01-15-14:30:25.log
 
 if not os.path.isdir(args.job_dir): #如果目录不存在，递归创建所有必要的父目录
     os.makedirs(args.job_dir)
 
-# use for loading pretrain model
-# if len(args.gpu)>1:
-#     name_base='module.' #在PyTorch中，当使用nn.DataParallel进行多GPU训练时，模型参数名会自动添加module.前缀。
-# else:
-#     name_base=''
+def create_quantized_model_via_pass(compress_rate, num_classes, num_bits):
+    """
+    Create quantized model using pass-based transformation
+    (Logic from test_ann2snn_module_vgg.py)
+    """
+    logger.info('==> Creating model via pass-based quantization..')
+    
+    # Create base SNN VGG model (pure_vgg.py logic)
+    vgg = vgg_16_bn(compress_rate=compress_rate, num_classes=num_classes)
+    for param in vgg.parameters():
+        param.requires_grad = True  # QAT training
+    
+    # Apply quantization pass (test_ann2snn_module_vgg.py logic)
+    quan_pass_args = {
+        "by": "regex_name",
+        # Quantize all Conv2d layers except the first one (convbn0)
+        r"features\.convbn(?!0\b)\d+\.layer\.module": {
+            "config": {
+                "name": "rescaw",
+                "num_bits": num_bits,
+            }
+        },
+    }
+    
+    mg, _ = quantize_module_transform_pass(vgg, quan_pass_args)
+    logger.info('==> Pass-based quantization completed')
+    
+    # Uncomment below if you want to apply ANN2SNN conversion as well
+    # convert_pass_args = {
+    #     "by": "regex_name",
+    #     # Add SNN conversion rules here if needed
+    # }
+    # mg, _ = ann2snn_module_transform_pass(mg, convert_pass_args)
+    
+    return mg
 
 def train(epoch, train_loader, model, criterion, optimizer, scheduler):
+    """Training function (from quant.py logic)"""
     batch_time = common.AverageMeter('Time', ':6.3f')
     data_time = common.AverageMeter('Data', ':6.3f')
     losses = common.AverageMeter('Loss', ':.4e')
@@ -154,6 +197,7 @@ def train(epoch, train_loader, model, criterion, optimizer, scheduler):
     return losses.avg, top1.avg # 返回整个epoch的平均损失和平均准确率
 
 def validate(epoch, val_loader, model, criterion, args):
+    """Validation function (from quant.py logic)"""
     batch_time = common.AverageMeter('Time', ':6.3f')
     losses = common.AverageMeter('Loss', ':.4e')
     top1 = common.AverageMeter('Acc@1', ':6.2f')
@@ -190,7 +234,7 @@ def main():
     cudnn.enabled=True
     logger.info("args = %s", args)  #将所有命令行参数记录到日志文件
 
-    # load training data
+    # load training data (from quant.py logic)
     if args.dataset == 'CIFAR10':
         trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=True, download=True)
         CLASSES = 10
@@ -212,20 +256,14 @@ def main():
     train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
     val_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
-    # load model
+    # Create model using pass-based quantization (combining both logics)
     logger.info('==> Building model..')
-    logger.info('=== Bit width===:'+str(args.bit))  #=== Bit width===:8
-    model = eval(args.arch)(compress_rate=[0.]*100,num_bits=args.bit,num_classes=CLASSES)
+    logger.info('=== Bit width===:'+str(args.bit))  #=== Bit width===:4
+    
+    # Use pass-based quantization instead of direct quantized model
+    model = create_quantized_model_via_pass(compress_rate=[0.]*100, num_classes=CLASSES, num_bits=args.bit)
     model.to(device)
     logger.info(model)  #将完整的模型架构输出到日志
-
-    # calculate model size
-    # input_image_size=32
-    # input_image = torch.randn(1, 3, input_image_size, input_image_size).to(device)
-    # flops, params = profile(model, inputs=(input_image,))
-    # flops, params = clever_format([flops, params], "%.3f")
-    # logger.info('Params: %s' % (params))
-    # logger.info('Flops: %s' % (flops))
 
     if len(args.gpu) > 1:
         device_id = []  #device_id = [0,1,2,3] (四GPU)
@@ -253,24 +291,14 @@ def main():
     start_epoch = 0
     best_top1_acc= 0
 
-    # load the checkpoint if it exists
+    # load the checkpoint if it exists (from quant.py logic)
     if args.resume:
-        checkpoint_dir = os.path.join(args.job_dir, 'checkpoint.pth.tar')   #默认: ./log/checkpoint.pth.tar
+        checkpoint_dir = os.path.join(args.job_dir, 'checkpoint.pth.tar')   #默认: ./log_pass/checkpoint.pth.tar
         logger.info('loading checkpoint {} ..........'.format(checkpoint_dir))
         checkpoint = torch.load(checkpoint_dir)
         start_epoch = checkpoint['epoch'] + 1
         best_top1_acc = checkpoint['best_top1_acc']
-        # deal with the single-multi GPU problem
-        # new_state_dict = OrderedDict()
-        # tmp_ckpt = checkpoint['state_dict']
-        # if len(args.gpu) > 1:   #情况1: 当前使用多GPU
-        #     for k, v in tmp_ckpt.items():   
-        #         new_state_dict['module.' + k.replace('module.', '')] = v    #确保所有参数名都有module.前缀
-        # else:
-        #     for k, v in tmp_ckpt.items():
-        #         new_state_dict[k.replace('module.', '')] = v
-
-        # model.load_state_dict(new_state_dict)
+        
         # 直接加载状态字典（GPU环境保持一致）
         model.load_state_dict(checkpoint['state_dict'])
         logger.info("loaded checkpoint {} epoch = {}".format(checkpoint_dir, checkpoint['epoch']))
@@ -281,7 +309,7 @@ def main():
     else:
         logger.info('training from scratch')
 
-    # train the model
+    # train the model (from quant.py logic)
     epoch = start_epoch
     while epoch < args.epochs:
         train_obj, train_top1_acc = train(epoch,  train_loader, model, criterion, optimizer, scheduler)
@@ -303,4 +331,4 @@ def main():
         logger.info("=>Best accuracy {:.3f}".format(best_top1_acc))#
 
 if __name__ == '__main__':
-  main()
+    main()
