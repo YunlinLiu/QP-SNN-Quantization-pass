@@ -41,7 +41,7 @@ parser.add_argument(
 parser.add_argument(
     '--batch_size',
     type=int,
-    default=256,
+    default=128,
     help='batch size')
 
 parser.add_argument(
@@ -77,7 +77,7 @@ parser.add_argument(
 parser.add_argument(
     '-j',
     '--workers',
-    default=16,
+    default=0,
     type=int,
     metavar='N',
     help='number of data loading workers (default: 16)')
@@ -100,10 +100,10 @@ if not os.path.isdir(args.job_dir): #如果目录不存在，递归创建所有�
     os.makedirs(args.job_dir)
 
 # use for loading pretrain model
-if len(args.gpu)>1:
-    name_base='module.' #在PyTorch中，当使用nn.DataParallel进行多GPU训练时，模型参数名会自动添加module.前缀。
-else:
-    name_base=''
+# if len(args.gpu)>1:
+#     name_base='module.' #在PyTorch中，当使用nn.DataParallel进行多GPU训练时，模型参数名会自动添加module.前缀。
+# else:
+#     name_base=''
 
 def train(epoch, train_loader, model, criterion, optimizer, scheduler):
     batch_time = common.AverageMeter('Time', ':6.3f')
@@ -260,18 +260,19 @@ def main():
         checkpoint = torch.load(checkpoint_dir)
         start_epoch = checkpoint['epoch'] + 1
         best_top1_acc = checkpoint['best_top1_acc']
-
         # deal with the single-multi GPU problem
-        new_state_dict = OrderedDict()
-        tmp_ckpt = checkpoint['state_dict']
-        if len(args.gpu) > 1:   #情况1: 当前使用多GPU
-            for k, v in tmp_ckpt.items():   
-                new_state_dict['module.' + k.replace('module.', '')] = v    #确保所有参数名都有module.前缀
-        else:
-            for k, v in tmp_ckpt.items():
-                new_state_dict[k.replace('module.', '')] = v
+        # new_state_dict = OrderedDict()
+        # tmp_ckpt = checkpoint['state_dict']
+        # if len(args.gpu) > 1:   #情况1: 当前使用多GPU
+        #     for k, v in tmp_ckpt.items():   
+        #         new_state_dict['module.' + k.replace('module.', '')] = v    #确保所有参数名都有module.前缀
+        # else:
+        #     for k, v in tmp_ckpt.items():
+        #         new_state_dict[k.replace('module.', '')] = v
 
-        model.load_state_dict(new_state_dict)
+        # model.load_state_dict(new_state_dict)
+        # 直接加载状态字典（GPU环境保持一致）
+        model.load_state_dict(checkpoint['state_dict'])
         logger.info("loaded checkpoint {} epoch = {}".format(checkpoint_dir, checkpoint['epoch']))
 
         # adjust the learning rate according to the checkpoint
