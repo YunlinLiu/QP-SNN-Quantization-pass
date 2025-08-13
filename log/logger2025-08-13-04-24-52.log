@@ -1,0 +1,277 @@
+08/13 04:24:52 AM | args = Namespace(arch='vgg_16_bn', job_dir='./log/', batch_size=256, epochs=300, lr=0.001, resume=False, gpu='0', dataset='CIFAR10', workers=0, bit=8)
+08/13 04:24:57 AM | ==> Building model..
+08/13 04:24:57 AM | === Bit width===:8
+08/13 04:25:00 AM | VGG(
+  (features): Sequential(
+    (convbn0): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu0): LIFSpike()
+    (convbn1): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu1): LIFSpike()
+    (pool2): SeqToANNContainer(
+      (module): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    )
+    (convbn3): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu3): LIFSpike()
+    (convbn4): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu4): LIFSpike()
+    (pool5): SeqToANNContainer(
+      (module): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    )
+    (convbn6): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu6): LIFSpike()
+    (convbn7): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu7): LIFSpike()
+    (convbn8): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu8): LIFSpike()
+    (pool9): SeqToANNContainer(
+      (module): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    )
+    (convbn10): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu10): LIFSpike()
+    (convbn11): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu11): LIFSpike()
+    (convbn12): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu12): LIFSpike()
+    (pool13): SeqToANNContainer(
+      (module): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    )
+    (convbn14): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu14): LIFSpike()
+    (convbn15): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu15): LIFSpike()
+    (convbn16): tdLayer(
+      (layer): SeqToANNContainer(
+        (module): ReScaWConv()
+      )
+      (bn): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+    )
+    (relu16): LIFSpike()
+  )
+  (avgpool): SeqToANNContainer(
+    (module): AvgPool2d(kernel_size=2, stride=2, padding=0)
+  )
+  (classifier): Sequential(
+    (linear1): SeqToANNContainer(
+      (module): Linear(in_features=512, out_features=10, bias=True)
+    )
+  )
+)
+08/13 04:25:00 AM | training from scratch
+08/13 04:25:00 AM | learning_rate: 0.001
+08/13 04:25:01 AM | Epoch[0](0/196): Loss 2.3065 Prec@1(1) 10.55
+08/13 04:25:11 AM | Epoch[0](50/196): Loss 2.1757 Prec@1(1) 17.37
+08/13 04:25:21 AM | Epoch[0](100/196): Loss 2.0969 Prec@1(1) 20.15
+08/13 04:25:31 AM | Epoch[0](150/196): Loss 2.0458 Prec@1(1) 21.92
+08/13 04:25:47 AM |  * Acc@1 34.470
+08/13 04:25:52 AM | =>Best accuracy 34.470
+08/13 04:25:52 AM | learning_rate: 0.000999972584682756
+08/13 04:25:52 AM | Epoch[1](0/196): Loss 1.8495 Prec@1(1) 27.73
+08/13 04:26:02 AM | Epoch[1](50/196): Loss 1.8667 Prec@1(1) 28.79
+08/13 04:26:12 AM | Epoch[1](100/196): Loss 1.8479 Prec@1(1) 29.57
+08/13 04:26:22 AM | Epoch[1](150/196): Loss 1.8233 Prec@1(1) 30.66
+08/13 04:26:38 AM |  * Acc@1 42.960
+08/13 04:26:42 AM | =>Best accuracy 42.960
+08/13 04:26:42 AM | learning_rate: 0.0009998903417374227
+08/13 04:26:42 AM | Epoch[2](0/196): Loss 1.7187 Prec@1(1) 39.45
+08/13 04:26:52 AM | Epoch[2](50/196): Loss 1.6800 Prec@1(1) 37.53
+08/13 04:27:02 AM | Epoch[2](100/196): Loss 1.6586 Prec@1(1) 38.16
+08/13 04:27:12 AM | Epoch[2](150/196): Loss 1.6427 Prec@1(1) 38.82
+08/13 04:27:28 AM |  * Acc@1 51.820
+08/13 04:27:31 AM | =>Best accuracy 51.820
+08/13 04:27:31 AM | learning_rate: 0.0009997532801828658
+08/13 04:27:32 AM | Epoch[3](0/196): Loss 1.6488 Prec@1(1) 39.06
+08/13 04:27:42 AM | Epoch[3](50/196): Loss 1.5574 Prec@1(1) 43.50
+08/13 04:27:52 AM | Epoch[3](100/196): Loss 1.5205 Prec@1(1) 44.66
+08/13 04:28:02 AM | Epoch[3](150/196): Loss 1.5104 Prec@1(1) 45.19
+08/13 04:28:17 AM |  * Acc@1 56.710
+08/13 04:28:19 AM | =>Best accuracy 56.710
+08/13 04:28:19 AM | learning_rate: 0.0009995614150494292
+08/13 04:28:19 AM | Epoch[4](0/196): Loss 1.5035 Prec@1(1) 46.09
+08/13 04:28:29 AM | Epoch[4](50/196): Loss 1.4447 Prec@1(1) 46.90
+08/13 04:28:39 AM | Epoch[4](100/196): Loss 1.4353 Prec@1(1) 47.67
+08/13 04:28:49 AM | Epoch[4](150/196): Loss 1.4252 Prec@1(1) 48.41
+08/13 04:29:05 AM |  * Acc@1 57.730
+08/13 04:29:08 AM | =>Best accuracy 57.730
+08/13 04:29:08 AM | learning_rate: 0.000999314767377287
+08/13 04:29:09 AM | Epoch[5](0/196): Loss 1.2882 Prec@1(1) 55.08
+08/13 04:29:19 AM | Epoch[5](50/196): Loss 1.3755 Prec@1(1) 50.19
+08/13 04:29:29 AM | Epoch[5](100/196): Loss 1.3532 Prec@1(1) 51.13
+08/13 04:29:39 AM | Epoch[5](150/196): Loss 1.3433 Prec@1(1) 51.59
+08/13 04:29:54 AM |  * Acc@1 64.570
+08/13 04:29:58 AM | =>Best accuracy 64.570
+08/13 04:29:58 AM | learning_rate: 0.0009990133642141358
+08/13 04:29:58 AM | Epoch[6](0/196): Loss 1.3336 Prec@1(1) 52.73
+08/13 04:30:08 AM | Epoch[6](50/196): Loss 1.3012 Prec@1(1) 53.33
+08/13 04:30:18 AM | Epoch[6](100/196): Loss 1.2851 Prec@1(1) 54.00
+08/13 04:30:28 AM | Epoch[6](150/196): Loss 1.2814 Prec@1(1) 54.03
+08/13 04:30:44 AM |  * Acc@1 64.110
+08/13 04:30:46 AM | =>Best accuracy 64.570
+08/13 04:30:46 AM | learning_rate: 0.000998657238612229
+08/13 04:30:46 AM | Epoch[7](0/196): Loss 1.2970 Prec@1(1) 53.52
+08/13 04:30:56 AM | Epoch[7](50/196): Loss 1.2313 Prec@1(1) 55.85
+08/13 04:31:06 AM | Epoch[7](100/196): Loss 1.2232 Prec@1(1) 56.19
+08/13 04:31:16 AM | Epoch[7](150/196): Loss 1.2131 Prec@1(1) 56.54
+08/13 04:31:31 AM |  * Acc@1 70.640
+08/13 04:31:33 AM | =>Best accuracy 70.640
+08/13 04:31:33 AM | learning_rate: 0.0009982464296247522
+08/13 04:31:33 AM | Epoch[8](0/196): Loss 1.1495 Prec@1(1) 58.59
+08/13 04:31:43 AM | Epoch[8](50/196): Loss 1.1667 Prec@1(1) 58.62
+08/13 04:31:53 AM | Epoch[8](100/196): Loss 1.1677 Prec@1(1) 58.36
+08/13 04:32:03 AM | Epoch[8](150/196): Loss 1.1631 Prec@1(1) 58.35
+08/13 04:32:19 AM |  * Acc@1 72.300
+08/13 04:32:20 AM | =>Best accuracy 72.300
+08/13 04:32:20 AM | learning_rate: 0.00099778098230154
+08/13 04:32:21 AM | Epoch[9](0/196): Loss 0.9616 Prec@1(1) 67.97
+08/13 04:32:31 AM | Epoch[9](50/196): Loss 1.1245 Prec@1(1) 60.32
+08/13 04:32:41 AM | Epoch[9](100/196): Loss 1.1176 Prec@1(1) 60.21
+08/13 04:32:51 AM | Epoch[9](150/196): Loss 1.1111 Prec@1(1) 60.62
+08/13 04:33:06 AM |  * Acc@1 73.070
+08/13 04:33:08 AM | =>Best accuracy 73.070
+08/13 04:33:08 AM | learning_rate: 0.0009972609476841367
+08/13 04:33:08 AM | Epoch[10](0/196): Loss 1.0915 Prec@1(1) 60.16
+08/13 04:33:18 AM | Epoch[10](50/196): Loss 1.0967 Prec@1(1) 60.79
+08/13 04:33:28 AM | Epoch[10](100/196): Loss 1.0938 Prec@1(1) 61.22
+08/13 04:33:38 AM | Epoch[10](150/196): Loss 1.0799 Prec@1(1) 61.86
+08/13 04:33:54 AM |  * Acc@1 72.090
+08/13 04:33:54 AM | =>Best accuracy 73.070
+08/13 04:33:54 AM | learning_rate: 0.0009966863828001983
+08/13 04:33:55 AM | Epoch[11](0/196): Loss 1.0325 Prec@1(1) 60.94
+08/13 04:34:05 AM | Epoch[11](50/196): Loss 1.0568 Prec@1(1) 62.52
+08/13 04:34:15 AM | Epoch[11](100/196): Loss 1.0493 Prec@1(1) 62.94
+08/13 04:34:25 AM | Epoch[11](150/196): Loss 1.0443 Prec@1(1) 63.22
+08/13 04:34:40 AM |  * Acc@1 76.450
+08/13 04:34:42 AM | =>Best accuracy 76.450
+08/13 04:34:42 AM | learning_rate: 0.0009960573506572392
+08/13 04:34:42 AM | Epoch[12](0/196): Loss 1.0449 Prec@1(1) 65.62
+08/13 04:34:52 AM | Epoch[12](50/196): Loss 1.0007 Prec@1(1) 65.33
+08/13 04:35:02 AM | Epoch[12](100/196): Loss 1.0141 Prec@1(1) 64.70
+08/13 04:35:12 AM | Epoch[12](150/196): Loss 1.0072 Prec@1(1) 64.97
+08/13 04:35:28 AM |  * Acc@1 77.100
+08/13 04:35:29 AM | =>Best accuracy 77.100
+08/13 04:35:29 AM | learning_rate: 0.000995373920235722
+08/13 04:35:30 AM | Epoch[13](0/196): Loss 0.8725 Prec@1(1) 72.66

@@ -41,7 +41,7 @@ parser.add_argument(
 parser.add_argument(
     '--batch_size',
     type=int,
-    default=128,
+    default=256,
     help='batch size')
 
 parser.add_argument(
@@ -192,10 +192,10 @@ def main():
 
     # load training data
     if args.dataset == 'CIFAR10':
-        trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=True, download=False)
+        trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=True, download=True)
         CLASSES = 10
     elif args.dataset == 'CIFAR100':
-        trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=False, download=False)
+        trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=False, download=True)
         CLASSES = 100
     elif args.dataset == 'ImageNet':
         trainset, testset = data_loaders.build_imagenet()

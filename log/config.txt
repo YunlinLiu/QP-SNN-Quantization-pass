@@ -1,0 +1,26 @@
+2025-08-13-04:24:52
+
+arch: vgg_16_bn
+job_dir: ./log/
+batch_size: 256
+epochs: 300
+lr: 0.001
+resume: False
+gpu: 0
+dataset: CIFAR10
+workers: 0
+bit: 8
+
+2025-08-13-04:35:49
+
+arch: vgg_16_bn
+job_dir: ./log/
+batch_size: 256
+epochs: 300
+lr: 0.001
+resume: True
+gpu: 0
+dataset: CIFAR10
+workers: 8
+bit: 8
+

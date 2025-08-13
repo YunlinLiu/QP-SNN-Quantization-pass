@@ -1,58 +1,8 @@
-# 排除指定的文件夹
-data/
-log/
-
-# 排除大的数据文件
-*.tar.gz
-*.zip
-*.rar
-*.7z
-
-# 排除模型文件和检查点
-*.pth
-*.pt
-*.pth.tar
-*.ckpt
-*.h5
-*.pkl
-*.pickle
-
-# 排除Python缓存文件
+# env
+.venv/
+.mase/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-.Python
-*.so
 
-# 排除日志文件
-*.log
-
-# 排除临时文件
-*.tmp
-*.temp
-*~
-
-# 排除IDE配置文件
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# 排除系统文件
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# 排除大的数据集文件
-*.csv
-*.json
-*.npy
-*.npz
-
-# 排除编译文件
-*.o
-*.a
-*.lib
-*.dll
-*.exe
+# data & outputs（继续忽略 data/ 与 outputs/ 目录）
+data/
