@@ -2,7 +2,12 @@ import math
 import torch.nn as nn
 import torch.nn.functional as F
 from models.layers import *
-from models.quant_function import ReScaWConv
+
+# 与quant_resnet_cifar.py的关键差异：
+# 1. 移除了所有ReScaWConv量化逻辑
+# 2. Conv2d直接在tdLayer构造函数中创建，不保存为独立属性
+#    这避免了量化pass替换时的重复引用问题
+
 
 def adapt_channel(compress_rate, num_layers):
     """
@@ -45,20 +50,19 @@ def adapt_channel(compress_rate, num_layers):
     return overall_channel, mid_channel
 
 
-def conv3x3(in_planes, out_planes, stride=1, num_bit=None):
+def conv3x3(in_planes, out_planes, stride=1):
     """
-    创建3x3量化卷积层
-    使用ReScaWConv实现权重量化，支持指定量化位数
+    创建3x3卷积层
     """
-    return ReScaWConv(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=1, num_bits=num_bit)
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
+                     padding=1, bias=False)
 
-def conv1x1(in_planes, out_planes, stride=1, num_bit=None):
+def conv1x1(in_planes, out_planes, stride=1):
     """
-    创建1x1量化卷积层（点卷积）
+    创建1x1卷积层（点卷积）
     通常用于改变通道数或下采样
     """
-    return ReScaWConv(in_planes, out_planes, kernel_size=1, stride=stride, num_bits=num_bit)
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
 class LambdaLayer(nn.Module):
@@ -84,31 +88,31 @@ class BasicBlock(nn.Module):
     """
     expansion = 1  # 通道扩展倍数（BasicBlock不扩展通道）
 
-    def __init__(self, midplanes, inplanes, planes, stride=1, num_bit=None):
+    def __init__(self, midplanes, inplanes, planes, stride=1):
         """
         Args:
             midplanes: 中间层通道数（压缩后的通道数）
             inplanes: 输入通道数
             planes: 输出通道数
             stride: 步长，用于下采样
-            num_bit: 量化位数
         """
         super(BasicBlock, self).__init__()
         self.inplanes = inplanes
         self.planes = planes
         
         # 第一个卷积层：可能进行下采样
-        self.conv1 = conv3x3(inplanes, midplanes, stride, num_bit)
         self.bn1 = tdBatchNorm(midplanes)  # 时域批归一化
-        self.conv1_s = tdLayer(self.conv1, self.bn1)  # 组合为时域层
+        # 注意：直接在tdLayer中创建Conv2d，不保存为self.conv1
+        # 避免量化pass时tdLayer内部引用未更新导致参数重复
+        self.conv1_s = tdLayer(conv3x3(inplanes, midplanes, stride), self.bn1)  # 组合为时域层
 
         # 第一个脉冲神经元层（LIF: Leaky Integrate-and-Fire）
         self.relu1 = LIFSpike()
 
         # 第二个卷积层：恢复到输出通道数
-        self.conv2 = conv3x3(midplanes, planes,num_bit=num_bit)
         self.bn2 = tdBatchNorm(planes)
-        self.conv2_s = tdLayer(self.conv2, self.bn2)
+        # 同上：直接创建Conv2d，避免量化时的重复引用问题
+        self.conv2_s = tdLayer(conv3x3(midplanes, planes), self.bn2)
 
         # 第二个脉冲神经元层（实现SEW ResNet的关键）
         self.relu2 = LIFSpike()
@@ -124,8 +128,6 @@ class BasicBlock(nn.Module):
                     lambda x: F.pad(x[:, :, ::2, ::2],  # 空间下采样
                                     (0, 0, 0, 0, (planes-inplanes)//2, planes-inplanes-(planes-inplanes)//2), 
                                     "constant", 0))  # 通道padding            
-            # [batch, channel, height:step:2, width:step:2]，每隔一个像素取一个，32×32 → 16×16
-            # 通道padding：F.pad 参数，结果：在128个通道前后各填充64个0通道，总共256通道。
             else:
                 # 仅通道数不匹配：只进行通道padding
                 self.shortcut = LambdaLayer(
@@ -167,19 +169,18 @@ class BasicBlock(nn.Module):
 
 class ResNet(nn.Module):
     """
-    量化脉冲ResNet网络主类
+    脉冲ResNet网络主类
     
-    实现了基于SEW ResNet论文的量化脉冲神经网络架构，
-    结合了权重量化和通道剪枝功能
+    实现了基于SEW ResNet论文的脉冲神经网络架构，
+    结合了通道剪枝功能
     """
-    def __init__(self, block, num_layers, compress_rate, num_classes, num_bits, step):
+    def __init__(self, block, num_layers, compress_rate, num_classes, step):
         """
         Args:
             block: 基础块类型（BasicBlock）
             num_layers: 网络总层数（如20）
             compress_rate: 各层压缩率列表，用于通道剪枝
             num_classes: 分类类别数
-            num_bits: 权重量化位数
             step: 时间步数T，脉冲神经网络的仿真时间步
         """
         super(ResNet, self).__init__()
@@ -188,27 +189,18 @@ class ResNet(nn.Module):
         n = (num_layers - 2) // 6  # 每个阶段的块数
 
         self.T = step  # 脉冲神经网络的时间步数
-        self.num_bits = num_bits  # 量化位数
 
         self.num_layer = num_layers
         # 根据压缩率计算各层的实际通道数
         self.overall_channel, self.mid_channel = adapt_channel(compress_rate, num_layers)
-        # 不剪枝时：
-        # overall_channel = [64, 128, 128, 128, 256, 256, 256, 512, 512, 512]
-        # mid_channel = [128, 128, 128, 256, 256, 256, 512, 512, 512]
-        # ResNet-20 遵循 6n+2 的设计原则（n=3），共20层：
-        # 层数计算：
-        # - 1个Stem卷积层 = 1层
-        # - 9个残差块 × 2个卷积/块 = 18层  
-        # - 1个全连接层 = 1层
-        # 总计 = 20层
         self.layer_num = 0  # 当前层索引
 
         # 第一个卷积层（stem层）：RGB图像输入
-        self.conv1 = nn.Conv2d(3, self.overall_channel[self.layer_num], 
-                               kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = tdBatchNorm(self.overall_channel[self.layer_num])
-        self.conv1_s = tdLayer(self.conv1, self.bn1)  # 包装为时域层
+        # 注意：直接在tdLayer中创建Conv2d，不保存为self.conv1
+        # 这样量化pass只需替换conv1_s.layer.module，避免重复引用
+        self.conv1_s = tdLayer(nn.Conv2d(3, self.overall_channel[self.layer_num], 
+                               kernel_size=3, stride=1, padding=1, bias=False), self.bn1)  # 包装为时域层
         self.relu = LIFSpike()  # LIF脉冲神经元
         self.layers = nn.ModuleList()
         self.layer_num += 1
@@ -227,7 +219,7 @@ class ResNet(nn.Module):
 
         # 权重初始化
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m,ReScaWConv):
+            if isinstance(m, nn.Conv2d):
                 # Kaiming初始化，适用于ReLU激活函数
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
@@ -252,15 +244,14 @@ class ResNet(nn.Module):
         layers.append(block(self.mid_channel[self.layer_num - 1],  # 中间通道数
                            self.overall_channel[self.layer_num - 1],  # 输入通道数
                            self.overall_channel[self.layer_num],  # 输出通道数
-                           stride, self.num_bits))
+                           stride))
         self.layer_num += 1
 
         # 后续块保持相同分辨率（stride=1）
         for i in range(1, blocks_num):
             layers.append(block(self.mid_channel[self.layer_num - 1], 
                                self.overall_channel[self.layer_num - 1],
-                               self.overall_channel[self.layer_num], 
-                               num_bit=self.num_bits))
+                               self.overall_channel[self.layer_num]))
             self.layer_num += 1
 
         return nn.Sequential(*layers)
@@ -303,50 +294,19 @@ class ResNet(nn.Module):
         x = self.fc(x)
         return x
 
-def resnet_20(compress_rate, num_classes, num_bits):
+def resnet_20(compress_rate, num_classes):
     """
     创建ResNet-20网络实例
     
     这是一个专门为CIFAR数据集设计的小型ResNet，
-    结合了SEW ResNet架构、权重量化和通道剪枝
+    结合了SEW ResNet架构和通道剪枝
     
     Args:
         compress_rate: 各层压缩率列表
         num_classes: 分类类别数（CIFAR-10为10，CIFAR-100为100）
-        num_bits: 权重量化位数
     
     Returns:
-        ResNet-20模型实例，参数量约0.46M
+        ResNet-20模型实例
     """
     T = 2  # 设置时间步数为2（较小的T可以减少计算量）
-    return ResNet(BasicBlock, 20, compress_rate=compress_rate, num_classes=num_classes, num_bits=num_bits, step=T)
-# ResNet forward过程：
-# [B, C, H, W]                    # 原始输入
-#     ↓ add_dimention
-# [B, T, C, H, W]                  # 添加时间维度
-#     ↓ conv1_s (tdLayer)
-# [B, T, C', H, W]                 # SeqToANNContainer处理
-#     ↓ relu (LIFSpike)  
-# [B, T, C', H, W]                 # LIFSpike保持维度
-#     ↓ BasicBlock
-# [B, T, C'', H', W']              # 通过残差块
-#     ↓ avgpool
-# [B, T, C'', 1, 1]                # 全局池化
-#     ↓ flatten
-# [B, T, C'']                      # 展平空间维度
-#     ↓ fc
-# [B, T, num_classes]              # 最终输出
-
-# 输入 [B,3,32,32]
-#     ↓
-# Conv2d (未量化) → 64通道
-#     ↓
-# Stage 1: 3个BasicBlock (6个量化Conv)
-#     ↓
-# Stage 2: 3个BasicBlock (6个量化Conv) + 下采样
-#     ↓  
-# Stage 3: 3个BasicBlock (6个量化Conv) + 下采样
-#     ↓
-# 全局池化
-#     ↓
-# Linear (未量化) → num_classes
+    return ResNet(BasicBlock, 20, compress_rate=compress_rate, num_classes=num_classes, step=T)
