@@ -4,14 +4,7 @@
 __pycache__/
 *.pyc
 
-# data & outputs（继续忽略 data/ 与 outputs/ 目录）
-data/
-# ignore big artifacts
-log/*.tar
-log/*.pth*
-log/*.ckpt
-log/*.log
-log_pass/*.tar
-log_pass/*.pth*
-log_pass/*.ckpt
-log_pass/*.log
+
+/data/
+/log/
+/log_pass/
