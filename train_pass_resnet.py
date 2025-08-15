@@ -27,7 +27,7 @@ from models.pure_resnet import resnet_20
 from mase.src.chop.passes.module.transforms import quantize_module_transform_pass
 
 
-parser = argparse.ArgumentParser("CIFAR-10 ResNet-20")   #参数解析器
+parser = argparse.ArgumentParser("CIFAR-100 ResNet-20")   #参数解析器
 
 parser.add_argument(
     '--arch',
@@ -44,7 +44,7 @@ parser.add_argument(
 parser.add_argument(
     '--batch_size',
     type=int,
-    default=32,    # ResNet通常使用较小的batch size
+    default=256,    # ResNet通常使用较小的batch size
     help='batch size')
 
 parser.add_argument(
@@ -72,7 +72,7 @@ parser.add_argument(
 
 parser.add_argument(
     '--dataset',
-    default='CIFAR10',
+    default='CIFAR100',
     type=str,
     help='dataset name',
     choices=['CIFAR10', 'CIFAR100', 'ImageNet', 'TinyImageNet'])
@@ -80,7 +80,7 @@ parser.add_argument(
 parser.add_argument(
     '-j',
     '--workers',
-    default=0,    # 减少workers数量以适配ResNet训练
+    default=8,    # 减少workers数量以适配ResNet训练
     type=int,
     metavar='N',
     help='number of data loading workers (default: 16)')
@@ -97,7 +97,7 @@ args = parser.parse_args()
 print_freq = 50
 common.record_config(args)
 now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-logger = common.get_logger(os.path.join(args.job_dir, 'ResNet_CIFAR10_logger'+now+'.log'))
+logger = common.get_logger(os.path.join(args.job_dir, 'ResNet_CIFAR100_logger'+now+'.log'))
 
 if not os.path.isdir(args.job_dir): #如果目录不存在，递归创建所有必要的父目录
     os.makedirs(args.job_dir)

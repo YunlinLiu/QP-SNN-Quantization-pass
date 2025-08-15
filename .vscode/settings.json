@@ -1,0 +1,25 @@
+{
+    "python.defaultInterpreterPath": "/usr/bin/python",
+    "python.analysis.extraPaths": [
+        "/workspace/QP-SNN-Quantization-pass",
+        "/workspace/QP-SNN-Quantization-pass/Spikingformer",
+        "/workspace/QP-SNN-Quantization-pass/mase",
+        "/workspace/QP-SNN-Quantization-pass/mase/src",
+        "/workspace/QP-SNN-Quantization-pass/utils"
+    ],
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.indexing": true,
+    "python.languageServer": "None",
+    "python.analysis.typeCheckingMode": "basic",
+    "python.terminal.activateEnvironment": true,
+    "editor.gotoLocation.multipleDefinitions": "goto",
+    "editor.gotoLocation.multipleReferences": "goto",
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true,
+        "**/__pycache__/**": true,
+        "**/*.pyc": true
+    }
+}

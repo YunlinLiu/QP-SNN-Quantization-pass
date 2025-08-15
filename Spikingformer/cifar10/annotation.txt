@@ -1,0 +1,78 @@
+模型整体架构
+vit_snn(
+  ├── patch_embed: SpikingTokenizer (图像分块与特征提取)
+  ├── block: ModuleList[4] (4层 SpikingTransformer)
+  └── head: Linear (分类头)
+)
+
+ 1. SpikingTokenizer (图像分块器)
+功能: 将输入图像转换为脉冲特征序列
+输入: (batch, 3, 32, 32) RGB图像
+输出: (T, batch, 384, 8, 8) 脉冲特征图
+分层结构:
+block0: Conv2d(3→48) + BatchNorm2d
+block1: LIF + Conv2d(48→96) + BatchNorm2d
+block2: LIF + Conv2d(96→192) + BatchNorm2d  
+block3: LIF + MaxPool2d + Conv2d(192→384) + BatchNorm2d  # 32×32 → 16×16
+block4: LIF + MaxPool2d + Conv2d(384→384) + BatchNorm2d  # 16×16 → 8×8
+
+2. SpikingTransformer Blocks (4层)
+SpikingTransformer(
+    SpikingSelfAttention(
+        # 输入投影
+        (proj_lif): MultiStepLIFNode(v_threshold=1.0, τ=2.0)
+        
+        # Q分支：查询向量生成
+        (q_conv): Conv1d(384→384, kernel=1, bias=False)
+        (q_bn): BatchNorm1d(384)
+        (q_lif): MultiStepLIFNode(v_threshold=1.0, τ=2.0)
+        
+        # K分支：键向量生成 (结构与Q相同)
+        (k_conv): Conv1d(384→384, kernel=1, bias=False)
+        (k_bn): BatchNorm1d(384)  
+        (k_lif): MultiStepLIFNode(v_threshold=1.0, τ=2.0)
+        
+        # V分支：值向量生成 (结构与Q、K相同)
+        (v_conv): Conv1d(384→384, kernel=1, bias=False)
+        (v_bn): BatchNorm1d(384)
+        (v_lif): MultiStepLIFNode(v_threshold=1.0, τ=2.0)
+        
+        # 注意力输出处理
+        (attn_lif): MultiStepLIFNode(v_threshold=0.5, τ=2.0)  # ⚠️ 阈值较低=0.5
+        (proj_conv): Conv1d(384→384, kernel=1)
+        (proj_bn): BatchNorm1d(384)
+    )
+    MLP(
+        # 第一层：扩展维度 384→1536 (4倍扩展)
+        (mlp1_lif): MultiStepLIFNode(v_threshold=1.0, τ=2.0)
+        (mlp1_conv): Conv2d(384→1536, kernel=1×1)
+        (mlp1_bn): BatchNorm2d(1536)
+
+        # 第二层：压缩维度 1536→384 (恢复原维度)
+        (mlp2_lif): MultiStepLIFNode(v_threshold=1.0, τ=2.0)  
+        (mlp2_conv): Conv2d(1536→384, kernel=1×1)
+        (mlp2_bn): BatchNorm2d(384)
+    )
+）
+
+3. 脉冲神经元特性
+MultiStepLIFNode 参数:
+v_threshold: 1.0 (注意力层为0.5)
+v_reset: 0.0
+tau: 2.0 (膜时间常数)
+backend: torch
+surrogate_function: Sigmoid(alpha=4.0)
+
+head: Linear(384 → 10)  # CIFAR-10 的10个类别
+
+输入 (2,3,32,32)
+    ↓
+SpikingTokenizer → (T=4,2,384,8,8)
+    ↓
+4×SpikingTransformer → (T=4,2,384,8,8)
+    ↓
+Global Average Pool → (T=4,2,384)
+    ↓  
+Temporal Mean → (2,384)
+    ↓
+Linear Head → (2,10)

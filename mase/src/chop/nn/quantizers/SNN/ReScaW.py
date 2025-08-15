@@ -18,13 +18,22 @@ class ReScaW(nn.Module):
         real_weights = weights
         
         # Calculate channel-wise scaling factor (gamma)
-        gamma = torch.mean(
-            torch.mean(
-                torch.mean(abs(real_weights), dim=3, keepdim=True), 
-                dim=2, keepdim=True
-            ), 
-            dim=1, keepdim=True
-        )
+        # Handle different weight dimensions (Conv1d: 3D, Conv2d: 4D)
+        if real_weights.dim() == 4:  # Conv2d weights: [out_ch, in_ch, h, w]
+            gamma = torch.mean(
+                torch.mean(
+                    torch.mean(abs(real_weights), dim=3, keepdim=True), 
+                    dim=2, keepdim=True
+                ), 
+                dim=1, keepdim=True
+            )
+        elif real_weights.dim() == 3:  # Conv1d weights: [out_ch, in_ch, kernel_size]
+            gamma = torch.mean(
+                torch.mean(abs(real_weights), dim=2, keepdim=True), 
+                dim=1, keepdim=True
+            )
+        else:
+            raise ValueError(f"Unsupported weight dimension: {real_weights.dim()}. Only 3D (Conv1d) and 4D (Conv2d) weights are supported.")
         gamma = gamma.detach()
         
         # Scale weights by gamma

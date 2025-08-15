@@ -13,6 +13,8 @@ from .llama import LlamaAttentionLSQInteger
 
 from .vgg import Conv2dReScaW
 
+from .spikingformer import Conv1dReScaW, Conv2dReScaW as SpikingformerConv2dReScaW
+
 # from .add import AddInteger
 from .conv1d import (
     Conv1dBlockFP,
@@ -192,7 +194,8 @@ quantized_basic_module_map = {
     "conv2d_block_fp": Conv2dBlockFP,
     "conv2d_lutnet": Conv2dLUT,
     "conv2d_logicnets": Conv2DLogicNets,
-    "conv2d_rescaw": Conv2dReScaW,
+    "conv1d_rescaw": Conv1dReScaW,
+    "conv2d_rescaw": SpikingformerConv2dReScaW,
     "convtranspose2d_integer": ConvTranspose2dInteger,
     "convtranspose2d_binary": ConvTranspose2dBinary,
     "convtranspose2d_log": ConvTranspose2dLog,

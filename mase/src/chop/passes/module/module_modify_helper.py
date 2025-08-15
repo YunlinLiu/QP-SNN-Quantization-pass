@@ -136,6 +136,38 @@ def instantiate_linear(module, postfix, module_map, additional_module_args):
     return linear
 
 
+def instantiate_conv1d(module, postfix, module_map, additional_module_args):
+    conv1d_cls = module_map[f"conv1d_{postfix}"]
+    has_bias = not (module.bias is None)
+    if "config" in inspect.signature(conv1d_cls.__init__).parameters:
+        conv1d = conv1d_cls(
+            in_channels=module.in_channels,
+            out_channels=module.out_channels,
+            kernel_size=module.kernel_size,
+            stride=module.stride,
+            padding=module.padding,
+            dilation=module.dilation,
+            groups=module.groups,
+            bias=has_bias,
+            padding_mode=module.padding_mode,
+            config=additional_module_args,
+        )
+    else:
+        conv1d = conv1d_cls(
+            in_channels=module.in_channels,
+            out_channels=module.out_channels,
+            kernel_size=module.kernel_size,
+            stride=module.stride,
+            padding=module.padding,
+            dilation=module.dilation,
+            groups=module.groups,
+            bias=has_bias,
+            padding_mode=module.padding_mode,
+            **additional_module_args,
+        )
+    return conv1d
+
+
 def instantiate_conv2d(module, postfix, module_map, additional_module_args):
     conv2d_cls = module_map[f"conv2d_{postfix}"]
     has_bias = not (module.bias is None)
@@ -246,6 +278,8 @@ def instantiate_module(module, postfix, module_map, additional_module_args):
 
     if isinstance(module, torch.nn.Linear):
         module = instantiate_linear(module, postfix, module_map, module_args)
+    elif isinstance(module, torch.nn.Conv1d):
+        module = instantiate_conv1d(module, postfix, module_map, module_args)
     elif isinstance(module, torch.nn.Conv2d):
         module = instantiate_conv2d(module, postfix, module_map, module_args)
     elif isinstance(module, torch.nn.Embedding):
