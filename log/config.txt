@@ -1,0 +1,13 @@
+2025-08-14-08:52:23
+
+arch: resnet_20
+job_dir: ./log/
+batch_size: 32
+epochs: 150
+lr: 0.001
+resume: False
+gpu: 0
+dataset: CIFAR10
+workers: 0
+bit: 8
+
