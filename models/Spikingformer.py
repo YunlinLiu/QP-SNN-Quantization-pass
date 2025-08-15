@@ -184,7 +184,7 @@ class vit_snn(nn.Module):
         self.num_classes = num_classes
         self.depths = depths
         self.T = T
-        #dpr: 创建随机深度衰减率列表，用于随机深度正则化
+        # dpr: Create stochastic depth decay rate list for stochastic depth regularization
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depths)]  # stochastic depth decay rule
         
         patch_embed = SpikingTokenizer(img_size_h=img_size_h,
@@ -229,11 +229,11 @@ class vit_snn(nn.Module):
         x = self.forward_features(x)
         x = self.head(x.mean(0))
         return x
-        # x.unsqueeze(0): 在第0维增加维度 [B,C,H,W] → [1,B,C,H,W]
-        # .repeat(self.T, 1, 1, 1, 1): 在时间维度复制T次 → [T,B,C,H,W]
-        # 通过特征提取器处理
-        # x.mean(0): 对时间维度取平均 [T,B,embed_dims] → [B,embed_dims]
-        # 通过分类头得到最终输出 [B,num_classes]
+        # x.unsqueeze(0): Add dimension at 0th dim [B,C,H,W] → [1,B,C,H,W]
+        # .repeat(self.T, 1, 1, 1, 1): Repeat T times in time dimension → [T,B,C,H,W]
+        # Process through feature extractor
+        # x.mean(0): Average over time dimension [T,B,embed_dims] → [B,embed_dims]
+        # Get final output through classification head [B,num_classes]
 
 
 @register_model
@@ -259,7 +259,7 @@ if __name__ == '__main__':
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=4, sr_ratios=1,
         T=4,
     ).cuda()
-    print(model)  # 打印模型结构
+    print(model)  # Print model structure
     # print the output
     
     # model.eval()

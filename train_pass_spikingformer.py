@@ -367,6 +367,27 @@ def _parse_args():
 def main():
     setup_default_logging()
     args, args_text = _parse_args()
+    
+    # Setup log directory and file
+    log_dir = Path("/workspace/QP-SNN-Quantization-pass/log_pass/Spikingformer/cifar10")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create log filename with timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    log_filename = f"Spikingformer_CIFAR10_logger{timestamp}.log"
+    log_path = log_dir / log_filename
+    
+    # Setup file logging
+    file_handler = logging.FileHandler(log_path)
+    file_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    
+    # Add file handler to root logger
+    root_logger = logging.getLogger()
+    root_logger.addHandler(file_handler)
+    
+    _logger.info(f'Log will be saved to: {log_path}')
 
     if args.log_wandb:
         if has_wandb:

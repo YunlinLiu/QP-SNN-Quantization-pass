@@ -36,7 +36,7 @@ sys.path.append(str(project_root / "models"))  # For pure_vgg import
 from pure_vgg import vgg_16_bn
 
 # Argument parser (from quant.py logic)
-parser = argparse.ArgumentParser("cifar10 pass quant")   #参数解析器
+parser = argparse.ArgumentParser("cifar10 pass quant")   # Argument parser
 
 parser.add_argument(
     '--arch',
@@ -102,13 +102,13 @@ parser.add_argument(
     help='bitwidth of weight')
 
 args = parser.parse_args()
-print_freq = (256*50)//args.batch_size #确定训练过程中多久打印一次日志，batch_size=256，则每50个batch打印一次
+print_freq = (256*50)//args.batch_size # Determine how often to print logs during training, if batch_size=256, print every 50 batches
 
 common.record_config(args)
-now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') #now = '2024-01-15-14-30-25' (示例)
-logger = common.get_logger(os.path.join(args.job_dir, 'logger'+now+'.log')) #日志文件创建，文件路径: ./log_pass/logger2024-01-15-14:30:25.log
+now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') # now = '2024-01-15-14-30-25' (example)
+logger = common.get_logger(os.path.join(args.job_dir, 'logger'+now+'.log')) # Log file creation, file path: ./log_pass/logger2024-01-15-14:30:25.log
 
-if not os.path.isdir(args.job_dir): #如果目录不存在，递归创建所有必要的父目录
+if not os.path.isdir(args.job_dir): # If directory doesn't exist, recursively create all necessary parent directories
     os.makedirs(args.job_dir)
 
 def create_quantized_model_via_pass(compress_rate, num_classes, num_bits):
@@ -154,47 +154,47 @@ def train(epoch, train_loader, model, criterion, optimizer, scheduler):
     losses = common.AverageMeter('Loss', ':.4e')
     top1 = common.AverageMeter('Acc@1', ':6.2f')
 
-    model.train()   # 设置模型为训练模式
-    end = time.time()   # 记录开始时间
+    model.train()   # Set model to training mode
+    end = time.time()   # Record start time
 
     for param_group in optimizer.param_groups:
         cur_lr = param_group['lr']
-    logger.info('learning_rate: ' + str(cur_lr))    #获取当前学习率并记录到日志
+    logger.info('learning_rate: ' + str(cur_lr))    # Get current learning rate and log it
 
-    num_iter = len(train_loader)    # 总批次数
+    num_iter = len(train_loader)    # Total number of batches
     for i, (images, target) in enumerate(train_loader):
-        data_time.update(time.time() - end) # 记录数据加载时间
+        data_time.update(time.time() - end) # Record data loading time
         images = images.to(device)
         target = target.to(device)
 
         # compute outputy
         logits = model(images)
-        out = logits.mean(1)     # SNN特有：时间维度平均，SNN输出形状通常是 [batch_size, time_steps, num_classes]，mean(1) 在时间维度(dim=1)上求平均，得到最终分类结果
+        out = logits.mean(1)     # SNN specific: Time dimension averaging, SNN output shape is usually [batch_size, time_steps, num_classes], mean(1) averages over time dimension (dim=1) to get final classification result
         loss = criterion(out, target)
 
         # measure accuracy and record loss
-        prec1 = common.accuracy(out, target, topk=(1,))[0]  # 表示计算 Top-1 准确率
-        n = images.size(0)  # batch_size，比如256
-        losses.update(loss.item(), n)   #losses.avg = 当前epoch中所有batch的加权平均损失
-        top1.update(prec1.item(), n)    #top1.avg = 当前epoch中所有batch的加权平均准确率
+        prec1 = common.accuracy(out, target, topk=(1,))[0]  # Calculate Top-1 accuracy
+        n = images.size(0)  # batch_size, e.g., 256
+        losses.update(loss.item(), n)   # losses.avg = weighted average loss of all batches in current epoch
+        top1.update(prec1.item(), n)    # top1.avg = weighted average accuracy of all batches in current epoch
 
         # compute gradient and do SGD step
-        optimizer.zero_grad()   # 清零梯度
-        loss.backward()         # 反向传播计算梯度
-        optimizer.step()        # 更新模型参数
+        optimizer.zero_grad()   # Clear gradients
+        loss.backward()         # Backpropagation to calculate gradients
+        optimizer.step()        # Update model parameters
 
         # measure elapsed time
-        batch_time.update(time.time() - end)    # 更新批次处理时间
-        end = time.time()                       # 重置时间记录
+        batch_time.update(time.time() - end)    # Update batch processing time
+        end = time.time()                       # Reset time record
 
         if i % print_freq == 0:
-            logger.info(       #Epoch[10](50/200): Loss 0.3245 Prec@1(1) 89.34#
-                'Epoch[{0}]({1}/{2}): Loss {loss.avg:.4f} Prec@1(1) {top1.avg:.2f}' #Prec@1 = Precision at 1 = Top-1 准确率
+            logger.info(       # Epoch[10](50/200): Loss 0.3245 Prec@1(1) 89.34
+                'Epoch[{0}]({1}/{2}): Loss {loss.avg:.4f} Prec@1(1) {top1.avg:.2f}' # Prec@1 = Precision at 1 = Top-1 accuracy
                 .format(epoch, i, num_iter, loss=losses,top1=top1))
 
     scheduler.step()
 
-    return losses.avg, top1.avg # 返回整个epoch的平均损失和平均准确率
+    return losses.avg, top1.avg # Return average loss and average accuracy for entire epoch
 
 def validate(epoch, val_loader, model, criterion, args):
     """Validation function (from quant.py logic)"""
@@ -204,7 +204,7 @@ def validate(epoch, val_loader, model, criterion, args):
 
     # switch to evaluation mode
     model.eval()
-    with torch.no_grad():   #验证时不需要梯度，只需要前向传播
+    with torch.no_grad():   # No gradients needed during validation, only forward propagation
         end = time.time()
         for i, (images, target) in enumerate(val_loader):
             images = images.to(device)
@@ -225,14 +225,14 @@ def validate(epoch, val_loader, model, criterion, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-        logger.info(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))    #Acc@1 91.250
+        logger.info(' * Acc@1 {top1.avg:.3f}'.format(top1=top1))    # Acc@1 91.250
 
     return losses.avg, top1.avg
 
 def main():
     cudnn.benchmark = True
     cudnn.enabled=True
-    logger.info("args = %s", args)  #将所有命令行参数记录到日志文件
+    logger.info("args = %s", args)  # Log all command line arguments to log file
 
     # load training data (from quant.py logic)
     if args.dataset == 'CIFAR10':
@@ -258,15 +258,15 @@ def main():
 
     # Create model using pass-based quantization (combining both logics)
     logger.info('==> Building model..')
-    logger.info('=== Bit width===:'+str(args.bit))  #=== Bit width===:4
+    logger.info('=== Bit width===:'+str(args.bit))  # === Bit width===:4
     
     # Use pass-based quantization instead of direct quantized model
     model = create_quantized_model_via_pass(compress_rate=[0.]*100, num_classes=CLASSES, num_bits=args.bit)
     model.to(device)
-    logger.info(model)  #将完整的模型架构输出到日志
+    logger.info(model)  # Output complete model architecture to log
 
     if len(args.gpu) > 1:
-        device_id = []  #device_id = [0,1,2,3] (四GPU)
+        device_id = []  # device_id = [0,1,2,3] (four GPUs)
         for i in range((len(args.gpu) + 1) // 2):
             device_id.append(i)
         model = nn.DataParallel(model, device_ids=device_id).cuda()
@@ -293,18 +293,18 @@ def main():
 
     # load the checkpoint if it exists (from quant.py logic)
     if args.resume:
-        checkpoint_dir = os.path.join(args.job_dir, 'checkpoint.pth.tar')   #默认: ./log_pass/checkpoint.pth.tar
+        checkpoint_dir = os.path.join(args.job_dir, 'checkpoint.pth.tar')   # Default: ./log_pass/checkpoint.pth.tar
         logger.info('loading checkpoint {} ..........'.format(checkpoint_dir))
         checkpoint = torch.load(checkpoint_dir)
         start_epoch = checkpoint['epoch'] + 1
         best_top1_acc = checkpoint['best_top1_acc']
         
-        # 直接加载状态字典（GPU环境保持一致）
+        # Directly load state dictionary (keep GPU environment consistent)
         model.load_state_dict(checkpoint['state_dict'])
         logger.info("loaded checkpoint {} epoch = {}".format(checkpoint_dir, checkpoint['epoch']))
 
         # adjust the learning rate according to the checkpoint
-        for epoch in range(start_epoch):    #通过循环调用scheduler.step()来"追赶"到正确的学习率
+        for epoch in range(start_epoch):    # "Catch up" to correct learning rate by calling scheduler.step() in loop
             scheduler.step()
     else:
         logger.info('training from scratch')
@@ -328,7 +328,7 @@ def main():
             }, is_best, args.job_dir)
 
         epoch += 1
-        logger.info("=>Best accuracy {:.3f}".format(best_top1_acc))#
+        logger.info("=>Best accuracy {:.3f}".format(best_top1_acc))
 
 if __name__ == '__main__':
     main()

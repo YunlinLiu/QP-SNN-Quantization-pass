@@ -3,47 +3,47 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.layers import *
 
-# 与quant_resnet_cifar.py的关键差异：
-# 1. 移除了所有ReScaWConv量化逻辑
-# 2. Conv2d直接在tdLayer构造函数中创建，不保存为独立属性
-#    这避免了量化pass替换时的重复引用问题
+# Key differences from quant_resnet_cifar.py:
+# 1. Removed all ReScaWConv quantization logic
+# 2. Conv2d is created directly in tdLayer constructor, not saved as independent attribute
+#    This avoids duplicate reference issues during quantization pass replacement
 
 
 def adapt_channel(compress_rate, num_layers):
     """
-    根据压缩率调整ResNet每层的通道数
+    Adjust the number of channels in each layer of ResNet according to compression rate
     
     Args:
-        compress_rate: 各层的压缩率列表
-        num_layers: 网络总层数（目前仅支持20层）
+        compress_rate: List of compression rates for each layer
+        num_layers: Total number of network layers (currently only supports 20 layers)
     
     Returns:
-        overall_channel: 各层输出通道数
-        mid_channel: 残差块中间层通道数
+        overall_channel: Output channel numbers for each layer
+        mid_channel: Middle layer channel numbers in residual blocks
     """
     if num_layers==20:
-        # ResNet-20的结构：每个阶段重复3个块
+        # ResNet-20 structure: 3 blocks repeated in each stage
         stage_repeat = [3, 3, 3]
-        # 原始通道配置：第一层64，然后3层128，3层256，3层512
+        # Original channel configuration: first layer 64, then 3 layers 128, 3 layers 256, 3 layers 512
         stage_out_channel = [64] + [128] * 3 + [256] * 3 + [512] * 3
 
-    # 计算每层的输出通道压缩率
+    # Calculate output channel compression rate for each layer
     stage_oup_cprate = []
     stage_oup_cprate += [compress_rate[0]]
     for i in range(len(stage_repeat)-1):
         stage_oup_cprate += [compress_rate[i+1]] * stage_repeat[i]
-    stage_oup_cprate +=[0.] * stage_repeat[-1]  # 最后一个阶段不压缩
-    mid_cprate = compress_rate[len(stage_repeat):]  # 中间层压缩率
+    stage_oup_cprate +=[0.] * stage_repeat[-1]  # Last stage is not compressed
+    mid_cprate = compress_rate[len(stage_repeat):]  # Middle layer compression rate
 
-    # 根据压缩率计算实际通道数
+    # Calculate actual channel numbers based on compression rate
     overall_channel = []
     mid_channel = []
     for i in range(len(stage_out_channel)):
         if i == 0 :
-            # 第一层只有输出通道
+            # First layer only has output channels
             overall_channel += [int(stage_out_channel[i] * (1-stage_oup_cprate[i]))]
         else:
-            # 其他层有输出通道和中间通道
+            # Other layers have both output and middle channels
             overall_channel += [int(stage_out_channel[i] * (1-stage_oup_cprate[i]))]
             mid_channel += [int(stage_out_channel[i] * (1-mid_cprate[i-1]))]
 
@@ -52,27 +52,27 @@ def adapt_channel(compress_rate, num_layers):
 
 def conv3x3(in_planes, out_planes, stride=1):
     """
-    创建3x3卷积层
+    Create 3x3 convolution layer
     """
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
 
 def conv1x1(in_planes, out_planes, stride=1):
     """
-    创建1x1卷积层（点卷积）
-    通常用于改变通道数或下采样
+    Create 1x1 convolution layer (pointwise convolution)
+    Usually used for changing channel numbers or downsampling
     """
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
 class LambdaLayer(nn.Module):
     """
-    Lambda层：用于在shortcut连接中执行自定义操作
-    主要用于维度不匹配时的padding操作
+    Lambda layer: Used to perform custom operations in shortcut connections
+    Mainly used for padding operations when dimensions don't match
     """
     def __init__(self, lambd):
         super(LambdaLayer, self).__init__()
-        # SeqToANNContainer用于处理时间序列数据
+        # SeqToANNContainer is used to handle time series data
         self.lambd = SeqToANNContainer(lambd)
 
     def forward(self, x):
@@ -81,61 +81,61 @@ class LambdaLayer(nn.Module):
 
 class BasicBlock(nn.Module):
     """
-    基础残差块 - 实现SEW ResNet的核心结构
+    Basic residual block - implements the core structure of SEW ResNet
     
-    根据SEW ResNet论文，这个块实现了spike-element-wise操作，
-    通过在shortcut连接前添加脉冲神经元来解决梯度消失/爆炸问题
+    According to the SEW ResNet paper, this block implements spike-element-wise operations,
+    solving gradient vanishing/exploding problems by adding spiking neurons before shortcut connections
     """
-    expansion = 1  # 通道扩展倍数（BasicBlock不扩展通道）
+    expansion = 1  # Channel expansion factor (BasicBlock does not expand channels)
 
     def __init__(self, midplanes, inplanes, planes, stride=1):
         """
         Args:
-            midplanes: 中间层通道数（压缩后的通道数）
-            inplanes: 输入通道数
-            planes: 输出通道数
-            stride: 步长，用于下采样
+            midplanes: Middle layer channel count (compressed channel count)
+            inplanes: Input channel count
+            planes: Output channel count
+            stride: Stride for downsampling
         """
         super(BasicBlock, self).__init__()
         self.inplanes = inplanes
         self.planes = planes
         
-        # 第一个卷积层：可能进行下采样
-        self.bn1 = tdBatchNorm(midplanes)  # 时域批归一化
-        # 注意：直接在tdLayer中创建Conv2d，不保存为self.conv1
-        # 避免量化pass时tdLayer内部引用未更新导致参数重复
-        self.conv1_s = tdLayer(conv3x3(inplanes, midplanes, stride), self.bn1)  # 组合为时域层
+        # First convolution layer: may perform downsampling
+        self.bn1 = tdBatchNorm(midplanes)  # Temporal domain batch normalization
+        # Note: Create Conv2d directly in tdLayer, don't save as self.conv1
+        # Avoid parameter duplication due to unupdated internal references in tdLayer during quantization pass
+        self.conv1_s = tdLayer(conv3x3(inplanes, midplanes, stride), self.bn1)  # Combined as temporal layer
 
-        # 第一个脉冲神经元层（LIF: Leaky Integrate-and-Fire）
+        # First spiking neuron layer (LIF: Leaky Integrate-and-Fire)
         self.relu1 = LIFSpike()
 
-        # 第二个卷积层：恢复到输出通道数
+        # Second convolution layer: restore to output channel count
         self.bn2 = tdBatchNorm(planes)
-        # 同上：直接创建Conv2d，避免量化时的重复引用问题
+        # Same as above: create Conv2d directly, avoid duplicate reference issues during quantization
         self.conv2_s = tdLayer(conv3x3(midplanes, planes), self.bn2)
 
-        # 第二个脉冲神经元层（实现SEW ResNet的关键）
+        # Second spiking neuron layer (key to implementing SEW ResNet)
         self.relu2 = LIFSpike()
         self.stride = stride
 
-        # Shortcut连接处理
+        # Shortcut connection handling
         self.shortcut = nn.Sequential()
         if stride != 1 or inplanes != planes:
-            # 当维度不匹配时，使用padding调整
+            # When dimensions don't match, use padding for adjustment
             if stride!=1:
-                # 下采样情况：空间维度减半，通道维度padding
+                # Downsampling case: spatial dimensions halved, channel dimensions padded
                 self.shortcut = LambdaLayer(
-                    lambda x: F.pad(x[:, :, ::2, ::2],  # 空间下采样
+                    lambda x: F.pad(x[:, :, ::2, ::2],  # Spatial downsampling
                                     (0, 0, 0, 0, (planes-inplanes)//2, planes-inplanes-(planes-inplanes)//2), 
-                                    "constant", 0))  # 通道padding            
+                                    "constant", 0))  # Channel padding            
             else:
-                # 仅通道数不匹配：只进行通道padding
+                # Only channel count mismatch: only perform channel padding
                 self.shortcut = LambdaLayer(
                     lambda x: F.pad(x[:, :, :, :],
                                     (0, 0, 0, 0, (planes-inplanes)//2, planes-inplanes-(planes-inplanes)//2), 
                                     "constant", 0))
             
-            # 备选方案：使用1x1卷积调整维度（已注释）
+            # Alternative: use 1x1 convolution to adjust dimensions (commented out)
             '''self.shortcut = nn.Sequential(
                 conv1x1(inplanes, planes, stride=stride),
                 #nn.BatchNorm2d(planes),
@@ -143,25 +143,25 @@ class BasicBlock(nn.Module):
 
     def forward(self, x):
         """
-        前向传播实现SEW ResNet块
+        Forward propagation implementing SEW ResNet block
         
-        SEW ResNet的关键创新：
-        1. 在主路径末尾不直接使用脉冲神经元
-        2. 先进行残差连接（element-wise addition）
-        3. 然后再通过脉冲神经元
-        这避免了传统Spiking ResNet的梯度消失问题
+        Key innovations of SEW ResNet:
+        1. Don't directly use spiking neurons at the end of main path
+        2. First perform residual connection (element-wise addition)
+        3. Then pass through spiking neuron
+        This avoids gradient vanishing problems in traditional Spiking ResNet
         """
-        # 主路径第一部分：卷积 -> BN -> 脉冲神经元
+        # First part of main path: convolution -> BN -> spiking neuron
         out = self.conv1_s(x)
         out = self.relu1(out)
 
-        # 主路径第二部分：卷积 -> BN
+        # Second part of main path: convolution -> BN
         out = self.conv2_s(out)
 
-        # SEW操作：先进行残差连接（ADD操作）
+        # SEW operation: first perform residual connection (ADD operation)
         out += self.shortcut(x)
         
-        # 然后通过脉冲神经元（这是SEW ResNet的核心改进）
+        # Then pass through spiking neuron (this is the core improvement of SEW ResNet)
         out = self.relu2(out)
 
         return out
@@ -169,85 +169,85 @@ class BasicBlock(nn.Module):
 
 class ResNet(nn.Module):
     """
-    脉冲ResNet网络主类
+    Main class for Spiking ResNet network
     
-    实现了基于SEW ResNet论文的脉冲神经网络架构，
-    结合了通道剪枝功能
+    Implements spiking neural network architecture based on SEW ResNet paper,
+    combined with channel pruning functionality
     """
     def __init__(self, block, num_layers, compress_rate, num_classes, step):
         """
         Args:
-            block: 基础块类型（BasicBlock）
-            num_layers: 网络总层数（如20）
-            compress_rate: 各层压缩率列表，用于通道剪枝
-            num_classes: 分类类别数
-            step: 时间步数T，脉冲神经网络的仿真时间步
+            block: Basic block type (BasicBlock)
+            num_layers: Total number of network layers (e.g., 20)
+            compress_rate: List of compression rates for each layer, used for channel pruning
+            num_classes: Number of classification categories
+            step: Time steps T, simulation time steps for spiking neural network
         """
         super(ResNet, self).__init__()
-        # ResNet的层数必须满足6n+2的形式（如20=6*3+2）
+        # ResNet layer count must satisfy 6n+2 form (e.g., 20=6*3+2)
         assert (num_layers - 2) % 6 == 0, 'depth should be 6n+2'
-        n = (num_layers - 2) // 6  # 每个阶段的块数
+        n = (num_layers - 2) // 6  # Number of blocks per stage
 
-        self.T = step  # 脉冲神经网络的时间步数
+        self.T = step  # Time steps for spiking neural network
 
         self.num_layer = num_layers
-        # 根据压缩率计算各层的实际通道数
+        # Calculate actual channel numbers for each layer based on compression rate
         self.overall_channel, self.mid_channel = adapt_channel(compress_rate, num_layers)
-        self.layer_num = 0  # 当前层索引
+        self.layer_num = 0  # Current layer index
 
-        # 第一个卷积层（stem层）：RGB图像输入
+        # First convolution layer (stem layer): RGB image input
         self.bn1 = tdBatchNorm(self.overall_channel[self.layer_num])
-        # 注意：直接在tdLayer中创建Conv2d，不保存为self.conv1
-        # 这样量化pass只需替换conv1_s.layer.module，避免重复引用
+        # Note: Create Conv2d directly in tdLayer, don't save as self.conv1
+        # This way quantization pass only needs to replace conv1_s.layer.module, avoiding duplicate references
         self.conv1_s = tdLayer(nn.Conv2d(3, self.overall_channel[self.layer_num], 
-                               kernel_size=3, stride=1, padding=1, bias=False), self.bn1)  # 包装为时域层
-        self.relu = LIFSpike()  # LIF脉冲神经元
+                               kernel_size=3, stride=1, padding=1, bias=False), self.bn1)  # Wrapped as temporal layer
+        self.relu = LIFSpike()  # LIF spiking neuron
         self.layers = nn.ModuleList()
         self.layer_num += 1
 
-        # 构建三个阶段的残差层
-        # 第一阶段：不下采样，保持分辨率
+        # Build three stages of residual layers
+        # First stage: no downsampling, maintain resolution
         self.layer1 = self._make_layer(block, blocks_num=n, stride=1)
-        # 第二阶段：stride=2进行下采样
+        # Second stage: stride=2 for downsampling
         self.layer2 = self._make_layer(block, blocks_num=n, stride=2)
-        # 第三阶段：stride=2继续下采样
+        # Third stage: stride=2 for continued downsampling
         self.layer3 = self._make_layer(block, blocks_num=n, stride=2)
 
-        # 全局平均池化和全连接分类器
+        # Global average pooling and fully connected classifier
         self.avgpool = SeqToANNContainer(nn.AdaptiveAvgPool2d((1, 1)))
         self.fc = SeqToANNContainer(nn.Linear(512 * BasicBlock.expansion, num_classes))
 
-        # 权重初始化
+        # Weight initialization
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                # Kaiming初始化，适用于ReLU激活函数
+                # Kaiming initialization, suitable for ReLU activation function
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                # BN层初始化：权重为1，偏置为0
+                # BN layer initialization: weights to 1, bias to 0
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
     def _make_layer(self, block, blocks_num, stride):
         """
-        构建一个阶段的残差层
+        Build residual layers for one stage
         
         Args:
-            block: 残差块类型
-            blocks_num: 该阶段包含的块数
-            stride: 第一个块的步长（用于下采样）
+            block: Residual block type
+            blocks_num: Number of blocks in this stage
+            stride: Stride of the first block (for downsampling)
         
         Returns:
-            包含多个残差块的Sequential层
+            Sequential layer containing multiple residual blocks
         """
         layers = []
-        # 第一个块可能进行下采样（stride可能为2）
-        layers.append(block(self.mid_channel[self.layer_num - 1],  # 中间通道数
-                           self.overall_channel[self.layer_num - 1],  # 输入通道数
-                           self.overall_channel[self.layer_num],  # 输出通道数
+        # First block may perform downsampling (stride may be 2)
+        layers.append(block(self.mid_channel[self.layer_num - 1],  # Middle channel count
+                           self.overall_channel[self.layer_num - 1],  # Input channel count
+                           self.overall_channel[self.layer_num],  # Output channel count
                            stride))
         self.layer_num += 1
 
-        # 后续块保持相同分辨率（stride=1）
+        # Subsequent blocks maintain same resolution (stride=1)
         for i in range(1, blocks_num):
             layers.append(block(self.mid_channel[self.layer_num - 1], 
                                self.overall_channel[self.layer_num - 1],
@@ -258,27 +258,27 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         """
-        前向传播
+        Forward propagation
         
-        脉冲神经网络的特点：
-        1. 需要在时间维度上重复输入T次
-        2. 每个神经元在每个时间步产生脉冲输出
-        3. 最终输出是所有时间步的累积结果
+        Characteristics of spiking neural networks:
+        1. Need to repeat input T times in time dimension
+        2. Each neuron produces spike output at each time step
+        3. Final output is cumulative result of all time steps
         
         Args:
-            x: 输入图像张量 [batch_size, 3, H, W]
+            x: Input image tensor [batch_size, 3, H, W]
         
         Returns:
-            分类输出 [batch_size, T, num_classes]
+            Classification output [batch_size, T, num_classes]
         """
-        # 添加时间维度，将输入复制T次：[B, C, H, W] -> [B, T, C, H, W]
+        # Add time dimension, replicate input T times: [B, C, H, W] -> [B, T, C, H, W]
         x = add_dimention(x, self.T)
         
-        # Stem层：卷积 -> BN -> 脉冲神经元
+        # Stem layer: convolution -> BN -> spiking neuron
         x = self.conv1_s(x)
         x = self.relu(x)
 
-        # 通过三个阶段的残差层
+        # Pass through three stages of residual layers
         for i, block in enumerate(self.layer1):
             x = block(x)
         for i, block in enumerate(self.layer2):
@@ -286,27 +286,27 @@ class ResNet(nn.Module):
         for i, block in enumerate(self.layer3):
             x = block(x)
 
-        # 全局平均池化
+        # Global average pooling
         x = self.avgpool(x)
-        # 展平特征：[B, T, C, 1, 1] -> [B, T, C]
+        # Flatten features: [B, T, C, 1, 1] -> [B, T, C]
         x = torch.flatten(x, 2)
-        # 全连接分类器
+        # Fully connected classifier
         x = self.fc(x)
         return x
 
 def resnet_20(compress_rate, num_classes):
     """
-    创建ResNet-20网络实例
+    Create ResNet-20 network instance
     
-    这是一个专门为CIFAR数据集设计的小型ResNet，
-    结合了SEW ResNet架构和通道剪枝
+    This is a small ResNet specifically designed for CIFAR datasets,
+    combining SEW ResNet architecture with channel pruning
     
     Args:
-        compress_rate: 各层压缩率列表
-        num_classes: 分类类别数（CIFAR-10为10，CIFAR-100为100）
+        compress_rate: List of compression rates for each layer
+        num_classes: Number of classification categories (10 for CIFAR-10, 100 for CIFAR-100)
     
     Returns:
-        ResNet-20模型实例
+        ResNet-20 model instance
     """
-    T = 2  # 设置时间步数为2（较小的T可以减少计算量）
+    T = 2  # Set time steps to 2 (smaller T can reduce computational load)
     return ResNet(BasicBlock, 20, compress_rate=compress_rate, num_classes=num_classes, step=T)

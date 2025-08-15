@@ -121,19 +121,19 @@ class BasicBlock(nn.Module):
             if stride!=1:
                 # 下采样情况：空间维度减半，通道维度padding
                 self.shortcut = LambdaLayer(
-                    lambda x: F.pad(x[:, :, ::2, ::2],  # 空间下采样
+                    lambda x: F.pad(x[:, :, ::2, ::2],  # Spatial downsampling
                                     (0, 0, 0, 0, (planes-inplanes)//2, planes-inplanes-(planes-inplanes)//2), 
-                                    "constant", 0))  # 通道padding            
-            # [batch, channel, height:step:2, width:step:2]，每隔一个像素取一个，32×32 → 16×16
-            # 通道padding：F.pad 参数，结果：在128个通道前后各填充64个0通道，总共256通道。
+                                    "constant", 0))  # Channel padding            
+            # [batch, channel, height:step:2, width:step:2], take every other pixel, 32×32 → 16×16
+            # Channel padding: F.pad parameters, result: pad 64 zero channels before and after 128 channels, total 256 channels.
             else:
-                # 仅通道数不匹配：只进行通道padding
+                # Only channel count mismatch: only perform channel padding
                 self.shortcut = LambdaLayer(
                     lambda x: F.pad(x[:, :, :, :],
                                     (0, 0, 0, 0, (planes-inplanes)//2, planes-inplanes-(planes-inplanes)//2), 
                                     "constant", 0))
             
-            # 备选方案：使用1x1卷积调整维度（已注释）
+            # Alternative: use 1x1 convolution to adjust dimensions (commented out)
             '''self.shortcut = nn.Sequential(
                 conv1x1(inplanes, planes, stride=stride),
                 #nn.BatchNorm2d(planes),
