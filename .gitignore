@@ -10,3 +10,8 @@ __pycache__/
 /data/
 /log/
 /log_pass/
+
+# outputs (ignored)
+/output_spikingformer/
+/output_spikingformer_quan/
+/output_pass_spikingformer/

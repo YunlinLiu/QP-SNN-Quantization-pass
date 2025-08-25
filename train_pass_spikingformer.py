@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
-# This file combines Spikingformer/cifar10/train.py training logic with test_quantize_module_spikingformer.py
-# to verify that pass-based quantization produces equivalent results to direct quantization
+# This is a slightly modified version of timm's training script
+""" ImageNet Training Script
 
+This is intended to be a lean and easily modifiable ImageNet training script that reproduces ImageNet
+training results with some of the latest networks and training techniques. It favours canonical PyTorch
+and standard Python style over trying to be able to 'do it all.' That said, it offers quite a few speed
+and training result improvements over the usual PyTorch example scripts. Repurpose as you see fit.
+
+This script was started from an early version of the PyTorch ImageNet example
+(https://github.com/pytorch/examples/tree/master/imagenet)
+
+NVIDIA CUDA specific speedups adopted from NVIDIA Apex examples
+(https://github.com/NVIDIA/apex/tree/master/examples/imagenet)
+
+Hacked together by / Copyright 2020 Ross Wightman (https://github.com/rwightman)
+"""
 import argparse
 import time
 import yaml
@@ -18,17 +31,15 @@ import torchvision.utils
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
 
 from timm.data import create_dataset, resolve_data_config, Mixup, FastCollateMixup, AugMixDataset, create_loader
-from timm.models import create_model, safe_model_name, resume_checkpoint, load_checkpoint, model_parameters
+# from loader import create_loader
+from timm.models import create_model, safe_model_name, resume_checkpoint, load_checkpoint, \
+    model_parameters
 from timm.layers import convert_splitbn_model
 from timm.utils import *
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy, JsdCrossEntropy
 from timm.optim import create_optimizer_v2, optimizer_kwargs
 from timm.scheduler import create_scheduler
 from timm.utils import ApexScaler, NativeScaler
-
-# Import quantization pass modules (from test_quantize_module_spikingformer.py logic)
-from chop.passes.module.transforms.snn.ann2snn import ann2snn_module_transform_pass
-from chop.passes.module.transforms import quantize_module_transform_pass
 
 # Add project root to import Spikingformer model
 import sys
@@ -37,12 +48,15 @@ project_root = Path(__file__).resolve().parents[0]
 sys.path.append(str(project_root))
 sys.path.append(str(project_root / "models"))
 sys.path.append(str(project_root / "Spikingformer" / "cifar10"))
-import model as spikingformer_model
+
+# Quantization transform pass
+from chop.passes.module.transforms import quantize_module_transform_pass
 
 try:
     from apex import amp
     from apex.parallel import DistributedDataParallel as ApexDDP
     from apex.parallel import convert_syncbn_model
+
     has_apex = True
 except ImportError:
     has_apex = False
@@ -56,27 +70,30 @@ except AttributeError:
 
 try:
     import wandb
+
     has_wandb = True
 except ImportError:
     has_wandb = False
 
 torch.backends.cudnn.benchmark = True
 _logger = logging.getLogger('train')
-
-# Config parser (from train.py logic)
+# The first arg parser parses out only the --config argument, this argument is used to
+# load a yaml file containing key-values that override the defaults for the main parser below
 config_parser = parser = argparse.ArgumentParser(description='Training Config', add_help=False)
 parser.add_argument('-c', '--config', default='Spikingformer/cifar10/cifar10.yml', type=str, metavar='FILE',
-                    help='YAML config file specifying default arguments')
+                    help='YAML config file specifying default arguments') # imagenet.yml  cifar10.yml
 
-parser = argparse.ArgumentParser(description='PyTorch Spikingformer Training with Quantization Pass')
+parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 
 # Model detail
-parser.add_argument('--model', default='Spikingformer', type=str, metavar='MODEL',
-                    help='Name of model to train (default: "Spikingformer"')
+parser.add_argument('--model', default='vitsnn', type=str, metavar='MODEL',
+                    help='Name of model to train (default: "countception"')
 parser.add_argument('-T', '--time-step', type=int, default=4, metavar='time',
                     help='simulation time step of spiking neuron (default: 4)')
 parser.add_argument('-L', '--layer', type=int, default=4, metavar='layer',
                     help='model layer (default: 4)')
+parser.add_argument('--depths', type=int, default=4, metavar='N',
+                    help='model block depths (default: 4)')
 parser.add_argument('--num-classes', type=int, default=None, metavar='N',
                     help='number of label classes (Model default if None)')
 parser.add_argument('--img-size', type=int, default=None, metavar='N',
@@ -93,9 +110,10 @@ parser.add_argument('--patch-size', type=int, default=None, metavar='N',
 parser.add_argument('--mlp-ratio', type=int, default=None, metavar='N',
                     help='expand ration of embedding dimension in MLP block')
 
+
 # Dataset / Model parameters
 parser.add_argument('-data-dir', metavar='DIR',default="/workspace/QP-SNN-Quantization-pass/data/CIFAR10/",
-                    help='path to dataset')
+                    help='path to dataset') #./torch/imagenet/
 parser.add_argument('--dataset', '-d', metavar='NAME', default='torch/cifar10',
                     help='dataset type (default: ImageFolder/ImageTar if empty)')
 parser.add_argument('--train-split', metavar='NAME', default='train',
@@ -126,6 +144,8 @@ parser.add_argument('-b', '--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 32)')
 parser.add_argument('-vb', '--val-batch-size', type=int, default=16, metavar='N',
                     help='input val batch size for training (default: 32)')
+# parser.add_argument('-vb', '--validation-batch-size-multiplier', type=int, default=1, metavar='N',
+#                     help='ratio of validation batch size to training batch size (default: 1)')
 
 # Optimizer parameters
 parser.add_argument('--opt', default='sgd', type=str, metavar='OPTIMIZER',
@@ -233,7 +253,7 @@ parser.add_argument('--drop-path', type=float, default=None, metavar='PCT',
 parser.add_argument('--drop-block', type=float, default=None, metavar='PCT',
                     help='Drop block rate (default: None)')
 
-# Batch norm parameters
+# Batch norm parameters (only works with gen_efficientnet based models currently)
 parser.add_argument('--bn-tf', action='store_true', default=False,
                     help='Use Tensorflow BatchNorm defaults for models that support it (default: False)')
 parser.add_argument('--bn-momentum', type=float, default=None,
@@ -255,14 +275,10 @@ parser.add_argument('--model-ema-force-cpu', action='store_true', default=False,
 parser.add_argument('--model-ema-decay', type=float, default=0.9998,
                     help='decay factor for model weights moving average (default: 0.9998)')
 
-# Quantization parameters
-parser.add_argument('--num-bits', type=int, default=8, metavar='N',
-                    help='quantization bit width (default: 8)')
-
 # Misc
 parser.add_argument('--seed', type=int, default=42, metavar='S',
                     help='random seed (default: 42)')
-parser.add_argument('--log-interval', type=int, default=1000, metavar='N',
+parser.add_argument('--log-interval', type=int, default=50, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--recovery-interval', type=int, default=0, metavar='N',
                     help='how many batches to wait before writing recovery checkpoint')
@@ -284,7 +300,7 @@ parser.add_argument('--pin-mem', action='store_true', default=False,
                     help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
 parser.add_argument('--no-prefetcher', action='store_true', default=False,
                     help='disable fast prefetcher')
-parser.add_argument('--output', default='./output_pass_spikingformer/', type=str, metavar='PATH',
+parser.add_argument('--output', default='./output_spikingformer_quan/', type=str, metavar='PATH',
                     help='path to output folder (default: none, current dir)')
 parser.add_argument('--experiment', default='', type=str, metavar='NAME',
                     help='name of train experiment, name of sub-folder for output')
@@ -299,52 +315,6 @@ parser.add_argument('--torchscript', dest='torchscript', action='store_true',
                     help='convert model torchscript for inference')
 parser.add_argument('--log-wandb', action='store_true', default=False,
                     help='log training and validation metrics to wandb')
-
-
-def create_quantized_model_via_pass(args):
-    """
-    Create quantized Spikingformer model using pass-based transformation
-    (Logic from test_quantize_module_spikingformer.py)
-    """
-    _logger.info('==> Creating Spikingformer model via pass-based quantization..')
-    
-    # Create base Spikingformer model (from train.py logic)
-    model = create_model(
-        'Spikingformer',
-        pretrained=False,
-        drop_rate=0.,
-        drop_path_rate=0.2,
-        drop_block_rate=None,
-        img_size_h=args.img_size, img_size_w=args.img_size,
-        patch_size=args.patch_size, embed_dims=args.dim, num_heads=args.num_heads, mlp_ratios=args.mlp_ratio,
-        in_channels=3, num_classes=args.num_classes, qkv_bias=False,
-        depths=args.depths, sr_ratios=1,
-    )
-    
-    for param in model.parameters():
-        param.requires_grad = True  # QAT training
-    
-    # Apply quantization pass (test_quantize_module_spikingformer.py logic)
-    quan_pass_args = {
-        "by": "regex_name",
-        r"block\.\d+\.attn\.(q_conv|k_conv|v_conv|proj_conv)": {
-            "config": {
-                "name": "rescaw",
-                "num_bits": args.num_bits,
-            }
-        },
-        r"block\.\d+\.mlp\.mlp[12]_conv": {
-            "config": {
-                "name": "rescaw",
-                "num_bits": args.num_bits,
-            }
-        },
-    }
-    
-    mg, _ = quantize_module_transform_pass(model, quan_pass_args)
-    _logger.info('==> Pass-based quantization completed')
-    
-    return mg
 
 
 def _parse_args():
@@ -367,27 +337,6 @@ def _parse_args():
 def main():
     setup_default_logging()
     args, args_text = _parse_args()
-    
-    # Setup log directory and file
-    log_dir = Path("/workspace/QP-SNN-Quantization-pass/log_pass/Spikingformer/cifar10")
-    log_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Create log filename with timestamp
-    timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    log_filename = f"Spikingformer_CIFAR10_logger{timestamp}.log"
-    log_path = log_dir / log_filename
-    
-    # Setup file logging
-    file_handler = logging.FileHandler(log_path)
-    file_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    
-    # Add file handler to root logger
-    root_logger = logging.getLogger()
-    root_logger.addHandler(file_handler)
-    
-    _logger.info(f'Log will be saved to: {log_path}')
 
     if args.log_wandb:
         if has_wandb:
@@ -433,16 +382,47 @@ def main():
 
     random_seed(args.seed, args.rank)
 
-    # Create quantized model using pass-based transformation
-    print("Creating quantized Spikingformer model")
-    model = create_quantized_model_via_pass(args)
+    # Import and create Spikingformer model
+    import model as spikingformer_model
     
+    model = create_model(
+        'Spikingformer',
+        pretrained=False,
+        drop_rate=0.,
+        drop_path_rate=0.2,
+        drop_block_rate=None,
+        img_size_h=args.img_size, img_size_w=args.img_size,
+        patch_size=args.patch_size, embed_dims=args.dim, num_heads=args.num_heads, mlp_ratios=args.mlp_ratio,
+        in_channels=3, num_classes=args.num_classes, qkv_bias=False,
+        depths=args.depths, sr_ratios=1,
+        T=args.time_step,
+    )
+
+    # Apply quantization pass to the freshly created (float) model before training
+    quan_pass_args = {
+        "by": "regex_name",
+        r"block\.\d+\.attn\.(q_conv|k_conv|v_conv|proj_conv)": {
+            "config": {
+                "name": "rescaw",
+                "num_bits": 8,
+            }
+        },
+        r"block\.\d+\.mlp\.mlp[12]_conv": {
+            "config": {
+                "name": "rescaw",
+                "num_bits": 8,
+            }
+        },
+    }
+    model, _ = quantize_module_transform_pass(model, quan_pass_args)
+
+    print("Creating quantized model")
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"number of params: {n_parameters}")
 
     if args.num_classes is None:
         assert hasattr(model, 'num_classes'), 'Model must have `num_classes` attr if not set on cmd line/config.'
-        args.num_classes = model.num_classes
+        args.num_classes = model.num_classes  # FIXME handle model default vs config num_classes more elegantly
 
     if args.local_rank == 0:
         _logger.info(
@@ -557,6 +537,7 @@ def main():
     dataset_eval = create_dataset(
         args.dataset, root=args.data_dir, split=args.val_split, is_training=False, batch_size=args.batch_size)
 
+
     # setup mixup / cutmix
     collate_fn = None
     mixup_fn = None
@@ -651,7 +632,7 @@ def main():
                 safe_model_name(args.model),
                 str(data_config['input_size'][-1])
             ])
-        output_dir = get_outdir(args.output if args.output else './output_pass_spikingformer/', exp_name)
+        output_dir = get_outdir(args.output if args.output else './output_spikingformer_quan/', exp_name)
         decreasing = True if eval_metric == 'loss' else False
         saver = CheckpointSaver(
             model=model, optimizer=optimizer, args=args, model_ema=model_ema, amp_scaler=loss_scaler,
@@ -750,6 +731,7 @@ def train_one_epoch(
                 parameters=model_parameters(model, exclude_head='agc' in args.clip_mode),
                 create_graph=second_order)
         else:
+            # loss.backward()
             loss.backward(create_graph=second_order)
             if args.clip_grad is not None:
                 dispatch_clip_grad(
@@ -806,6 +788,7 @@ def train_one_epoch(
             lr_scheduler.step_update(num_updates=num_updates, metric=losses_m.avg)
 
         end = time.time()
+        # end for
 
     if hasattr(optimizer, 'sync_lookahead'):
         optimizer.sync_lookahead()
@@ -881,3 +864,5 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
 
 if __name__ == '__main__':
     main()
+
+
