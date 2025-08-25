@@ -44,7 +44,7 @@ from timm.utils import ApexScaler, NativeScaler
 # Add project root to import Spikingformer model
 import sys
 from pathlib import Path
-project_root = Path(__file__).resolve().parents[0]
+project_root = Path(__file__).resolve().parents[1]
 sys.path.append(str(project_root))
 sys.path.append(str(project_root / "models"))
 sys.path.append(str(project_root / "Spikingformer" / "cifar10"))
@@ -404,13 +404,13 @@ def main():
         r"block\.\d+\.attn\.(q_conv|k_conv|v_conv|proj_conv)": {
             "config": {
                 "name": "rescaw",
-                "num_bits": 8,
+                "num_bits": 2,
             }
         },
         r"block\.\d+\.mlp\.mlp[12]_conv": {
             "config": {
                 "name": "rescaw",
-                "num_bits": 8,
+                "num_bits": 2,
             }
         },
     }

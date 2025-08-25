@@ -21,5 +21,15 @@
         "**/node_modules/*/**": true,
         "**/__pycache__/**": true,
         "**/*.pyc": true
-    }
+    },
+    "cursorpyright.analysis.autoImportCompletions": true,
+    "cursorpyright.analysis.autoSearchPaths": true,
+    "cursorpyright.analysis.extraPaths": [
+        "/workspace/QP-SNN-Quantization-pass",
+        "/workspace/QP-SNN-Quantization-pass/Spikingformer",
+        "/workspace/QP-SNN-Quantization-pass/mase",
+        "/workspace/QP-SNN-Quantization-pass/mase/src",
+        "/workspace/QP-SNN-Quantization-pass/utils"
+    ],
+    "cursorpyright.analysis.typeCheckingMode": "basic"
 }

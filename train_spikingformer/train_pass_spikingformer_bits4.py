@@ -44,10 +44,13 @@ from timm.utils import ApexScaler, NativeScaler
 # Add project root to import Spikingformer model
 import sys
 from pathlib import Path
-project_root = Path(__file__).resolve().parents[0]
+project_root = Path(__file__).resolve().parents[1]
 sys.path.append(str(project_root))
 sys.path.append(str(project_root / "models"))
 sys.path.append(str(project_root / "Spikingformer" / "cifar10"))
+
+# Quantization transform pass
+from chop.passes.module.transforms import quantize_module_transform_pass
 
 try:
     from apex import amp
@@ -89,6 +92,8 @@ parser.add_argument('-T', '--time-step', type=int, default=4, metavar='time',
                     help='simulation time step of spiking neuron (default: 4)')
 parser.add_argument('-L', '--layer', type=int, default=4, metavar='layer',
                     help='model layer (default: 4)')
+parser.add_argument('--depths', type=int, default=4, metavar='N',
+                    help='model block depths (default: 4)')
 parser.add_argument('--num-classes', type=int, default=None, metavar='N',
                     help='number of label classes (Model default if None)')
 parser.add_argument('--img-size', type=int, default=None, metavar='N',
@@ -295,7 +300,7 @@ parser.add_argument('--pin-mem', action='store_true', default=False,
                     help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
 parser.add_argument('--no-prefetcher', action='store_true', default=False,
                     help='disable fast prefetcher')
-parser.add_argument('--output', default='./output_spikingformer/', type=str, metavar='PATH',
+parser.add_argument('--output', default='./output_spikingformer_quan/', type=str, metavar='PATH',
                     help='path to output folder (default: none, current dir)')
 parser.add_argument('--experiment', default='', type=str, metavar='NAME',
                     help='name of train experiment, name of sub-folder for output')
@@ -390,9 +395,28 @@ def main():
         patch_size=args.patch_size, embed_dims=args.dim, num_heads=args.num_heads, mlp_ratios=args.mlp_ratio,
         in_channels=3, num_classes=args.num_classes, qkv_bias=False,
         depths=args.depths, sr_ratios=1,
+        T=args.time_step,
     )
 
-    print("Creating model")
+    # Apply quantization pass to the freshly created (float) model before training
+    quan_pass_args = {
+        "by": "regex_name",
+        r"block\.\d+\.attn\.(q_conv|k_conv|v_conv|proj_conv)": {
+            "config": {
+                "name": "rescaw",
+                "num_bits": 4,
+            }
+        },
+        r"block\.\d+\.mlp\.mlp[12]_conv": {
+            "config": {
+                "name": "rescaw",
+                "num_bits": 4,
+            }
+        },
+    }
+    model, _ = quantize_module_transform_pass(model, quan_pass_args)
+
+    print("Creating quantized model")
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"number of params: {n_parameters}")
 
@@ -608,7 +632,7 @@ def main():
                 safe_model_name(args.model),
                 str(data_config['input_size'][-1])
             ])
-        output_dir = get_outdir(args.output if args.output else './output_spikingformer/', exp_name)
+        output_dir = get_outdir(args.output if args.output else './output_spikingformer_quan/', exp_name)
         decreasing = True if eval_metric == 'loss' else False
         saver = CheckpointSaver(
             model=model, optimizer=optimizer, args=args, model_ema=model_ema, amp_scaler=loss_scaler,
@@ -840,3 +864,5 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
 
 if __name__ == '__main__':
     main()
+
+
