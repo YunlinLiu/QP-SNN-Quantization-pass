@@ -19,7 +19,7 @@ for param in resnet.parameters():
     param.requires_grad = True  # QAT training
 
 # Quantization configuration
-quan_pass_args = {
+ReScaW_quan_pass_args = {
     "by": "regex_name",
     # Quantize Conv2d layers inside tdLayer (conv1_s, conv2_s), exclude the first conv1
     r"layer\d+\.\d+\.conv[12]_s\.layer\.module$": {
@@ -30,6 +30,26 @@ quan_pass_args = {
     },
 }
 
-# Apply quantization pass
-mg, _ = quantize_module_transform_pass(resnet, quan_pass_args)
-print(mg)
+# Vanilla quantization configuration (same scope, different quantizer)
+Vanilla_quan_pass_args = {
+    "by": "regex_name",
+    r"layer\d+\.\d+\.conv[12]_s\.layer\.module$": {
+        "config": {
+            "name": "vanilla",
+            "num_bits": 8,
+        }
+    },
+}
+
+# Apply quantization pass (ReScaW)
+mg_rescaw, _ = quantize_module_transform_pass(resnet, ReScaW_quan_pass_args)
+print(mg_rescaw)
+
+# Build a fresh model for Vanilla to avoid in-place replacement accumulation
+resnet_v = resnet_20(compress_rate=[0.0]*12, num_classes=10)
+for param in resnet_v.parameters():
+    param.requires_grad = True  # QAT training
+
+# Apply quantization pass (Vanilla)
+mg_vanilla, _ = quantize_module_transform_pass(resnet_v, Vanilla_quan_pass_args)
+print(mg_vanilla)

@@ -19,7 +19,7 @@ for param in vgg.parameters():
     param.requires_grad = True  # QAT training
 
 # def test_ann2snn_module_transform_pass():
-quan_pass_args = {
+ReScaW_quan_pass_args = {
     "by": "regex_name",
     # Quantize all Conv2d layers except the first one (convbn0)
     r"features\.convbn(?!0\b)\d+\.layer\.module": {
@@ -29,8 +29,25 @@ quan_pass_args = {
         }
     },
 }
-mg, _ = quantize_module_transform_pass(vgg, quan_pass_args)
-print(mg)
+mg_rescaw, _ = quantize_module_transform_pass(vgg, ReScaW_quan_pass_args)
+print(mg_rescaw)
+
+# Build a fresh model for Vanilla to avoid in-place replacement accumulation
+vgg_v = vgg_16_bn(compress_rate=[0.0] * 16, num_classes=10)
+for param in vgg_v.parameters():
+    param.requires_grad = True  # QAT training
+
+Vanilla_quan_pass_args = {
+    "by": "regex_name",
+    r"features\.convbn(?!0\b)\d+\.layer\.module": {
+        "config": {
+            "name": "vanilla",
+            "num_bits": 4,
+        }
+    },
+}
+mg_vanilla, _ = quantize_module_transform_pass(vgg_v, Vanilla_quan_pass_args)
+print(mg_vanilla)
 
 # convert_pass_args = {
 #     "by": "regex_name",
