@@ -1,0 +1,31 @@
+{
+    "include": [
+        "Spikingformer",
+        "mase",
+        "utils",
+        "*.py"
+    ],
+    "exclude": [
+        "**/__pycache__",
+        "**/*.pyc",
+        "**/node_modules",
+        "**/.git"
+    ],
+    "extraPaths": [
+        "./Spikingformer",
+        "./mase",
+        "./mase/src",
+        "./utils"
+    ],
+    "pythonVersion": "3.11",
+    "pythonPlatform": "Linux",
+    "typeCheckingMode": "basic",
+    "reportMissingImports": "warning",
+    "reportMissingTypeStubs": "none",
+    "reportOptionalMemberAccess": "none",
+    "reportOptionalSubscript": "none",
+    "reportPrivateImportUsage": "none",
+    "reportUnusedImport": "information",
+    "reportUnusedVariable": "information"
+}
+

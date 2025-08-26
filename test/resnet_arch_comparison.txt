@@ -1,0 +1,1274 @@
+============================================================
+1. QUANTIZED ResNet-20 (quant_resnet_cifar.py, 8-bit)
+============================================================
+
+ResNet(
+  (conv1): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+  (bn1): tdBatchNorm(
+    (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (seqbn): SeqToANNContainer(
+      (module): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (conv1_s): tdLayer(
+    (layer): SeqToANNContainer(
+      (module): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    )
+    (bn): tdBatchNorm(
+      (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (seqbn): SeqToANNContainer(
+        (module): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+  )
+  (relu): LIFSpike()
+  (layers): ModuleList()
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (conv1): ReScaWConv()
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (conv2): ReScaWConv()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): ReScaWConv()
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (avgpool): SeqToANNContainer(
+    (module): AdaptiveAvgPool2d(output_size=(1, 1))
+  )
+  (fc): SeqToANNContainer(
+    (module): Linear(in_features=512, out_features=10, bias=True)
+  )
+)
+
+============================================================
+2. PURE ResNet-20 (pure_resnet.py, no quantization)
+============================================================
+
+ResNet(
+  (bn1): tdBatchNorm(
+    (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (seqbn): SeqToANNContainer(
+      (module): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (conv1_s): tdLayer(
+    (layer): SeqToANNContainer(
+      (module): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    )
+    (bn): tdBatchNorm(
+      (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (seqbn): SeqToANNContainer(
+        (module): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+  )
+  (relu): LIFSpike()
+  (layers): ModuleList()
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (avgpool): SeqToANNContainer(
+    (module): AdaptiveAvgPool2d(output_size=(1, 1))
+  )
+  (fc): SeqToANNContainer(
+    (module): Linear(in_features=512, out_features=10, bias=True)
+  )
+)
+
+============================================================
+3. PASS-QUANTIZED ResNet-20 (pure + quantize_pass, 8-bit)
+============================================================
+
+ResNet(
+  (bn1): tdBatchNorm(
+    (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (seqbn): SeqToANNContainer(
+      (module): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (conv1_s): tdLayer(
+    (layer): SeqToANNContainer(
+      (module): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    )
+    (bn): tdBatchNorm(
+      (bn): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (seqbn): SeqToANNContainer(
+        (module): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+    )
+  )
+  (relu): LIFSpike()
+  (layers): ModuleList()
+  (layer1): Sequential(
+    (0): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (layer2): Sequential(
+    (0): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (layer3): Sequential(
+    (0): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): LambdaLayer(
+        (lambd): SeqToANNContainer()
+      )
+    )
+    (1): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+    (2): BasicBlock(
+      (bn1): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv1_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu1): LIFSpike()
+      (bn2): tdBatchNorm(
+        (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (seqbn): SeqToANNContainer(
+          (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (conv2_s): tdLayer(
+        (layer): SeqToANNContainer(
+          (module): Conv2dReScaW(
+            512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+            (weight_quan): ReScaW()
+          )
+        )
+        (bn): tdBatchNorm(
+          (bn): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          (seqbn): SeqToANNContainer(
+            (module): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+          )
+        )
+      )
+      (relu2): LIFSpike()
+      (shortcut): Sequential()
+    )
+  )
+  (avgpool): SeqToANNContainer(
+    (module): AdaptiveAvgPool2d(output_size=(1, 1))
+  )
+  (fc): SeqToANNContainer(
+    (module): Linear(in_features=512, out_features=10, bias=True)
+  )
+)
+
+============================================================
+验证与对比结果
+============================================================
+
+层统计:
+1. 原始量化模型: Conv2d=1, ReScaW=18
+2. 纯净模型:     Conv2d=19, ReScaW=0
+3. Pass量化模型: Conv2d=1, ReScaW=18
+
+参数量:
+1. 原始量化模型: 17.05M
+2. 纯净模型:     17.05M
+3. Pass量化模型: 17.05M
+
+验证结论:
+✅ Pass量化成功！原始量化模型与Pass量化模型完全等价！

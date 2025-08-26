@@ -1,0 +1,2024 @@
+Deep Residual Learning in Spiking Neural Networks
+Wei Fang1,2
+, Zhaofei Yu1,2∗
+, Yanqi Chen1,2
+,
+Tiejun Huang1,2
+, Timothée Masquelier3
+, Yonghong Tian1,2∗
+1Department of Computer Science and Technology, Peking University
+2Peng Cheng Laboratory, Shenzhen 518055, China
+3Centre de Recherche Cerveau et Cognition, UMR5549 CNRS - Univ. Toulouse 3 , Toulouse, France
+Abstract
+Deep Spiking Neural Networks (SNNs) present optimization difficulties for
+gradient-based approaches due to discrete binary activation and complex spatial￾temporal dynamics. Considering the huge success of ResNet in deep learning,
+it would be natural to train deep SNNs with residual learning. Previous Spiking
+ResNet mimics the standard residual block in ANNs and simply replaces ReLU
+activation layers with spiking neurons, which suffers the degradation problem
+and can hardly implement residual learning. In this paper, we propose the spike￾element-wise (SEW) ResNet to realize residual learning in deep SNNs. We prove
+that the SEW ResNet can easily implement identity mapping and overcome the
+vanishing/exploding gradient problems of Spiking ResNet. We evaluate our SEW
+ResNet on ImageNet, DVS Gesture, and CIFAR10-DVS datasets, and show that
+SEW ResNet outperforms the state-of-the-art directly trained SNNs in both ac￾curacy and time-steps. Moreover, SEW ResNet can achieve higher performance
+by simply adding more layers, providing a simple method to train deep SNNs.
+To our best knowledge, this is the first time that directly training deep SNNs
+with more than 100 layers becomes possible. Our codes are available at https:
+//github.com/fangwei123456/Spike-Element-Wise-ResNet.
+1 Introduction
+Artificial Neural Networks (ANNs) have achieved great success in many tasks, including image
+classification [28, 52, 55], object detection [9, 34, 44], machine translation [2], and gaming [37, 51].
+One of the critical factors for ANNs’ success is deep learning [29], which uses multi-layers to learn
+representations of data with multiple levels of abstraction. It has been proved that deeper networks
+have advantages over shallower networks in computation cost and generalization ability [3]. The
+function represented by a deep network can require an exponential number of hidden units by a shallow
+network with one hidden layer [38]. In addition, the depth of the network is closely related to the
+network’s performance in practical tasks [52, 55, 27, 52]. Nevertheless, recent evidence [13, 53, 14]
+reveals that with the network depth increasing, the accuracy gets saturated and then degrades rapidly.
+To solve this degradation problem, residual learning is proposed [14, 15] and the residual structure is
+widely exploited in “very deep” networks that achieve the leading performance [22, 59, 18, 57].
+Spiking Neural Networks (SNNs) are regarded as a potential competitor of ANNs for their high
+biological plausibility, event-driven property, and low power consumption [45]. Recently, deep
+learning methods are introduced into SNNs, and deep SNNs have achieved close performance as
+ANNs in some simple classification datasets [56], but still worse than ANNs in complex tasks, e.g.,
+classifying the ImageNet dataset [47]. To obtain higher performance SNNs, it would be natural to
+∗Corresponding author
+35th Conference on Neural Information Processing Systems (NeurIPS 2021).
+arXiv:2102.04159v6 [cs.NE] 22 Jan 2022
+explore deeper network structures like ResNet. Spiking ResNet [25, 60, 21, 17, 49, 12, 30, 64, 48,
+42, 43], as the spiking version of ResNet, is proposed by mimicking the residual block in ANNs
+and replacing ReLU activation layers with spiking neurons. Spiking ResNet converted from ANN
+achieves state-of-the-art accuracy on nearly all datasets, while the directly trained Spiking ResNet
+has not been validated to solve the degradation problem.
+In this paper, we show that Spiking ResNet is inapplicable to all neuron models to achieve identity
+mapping. Even if the identity mapping condition is met, Spiking ResNet suffers from the problems
+of vanishing/exploding gradient. Thus, we propose the Spike-Element-Wise (SEW) ResNet to realize
+residual learning in SNNs. We prove that the SEW ResNet can easily implement identity mapping and
+overcome the vanishing/exploding gradient problems at the same time. We evaluate Spiking ResNet
+and SEW ResNet on both the static ImageNet dataset and the neuromorphic DVS Gesture dataset [1],
+CIFAR10-DVS dataset [32]. The experiment results are consistent with our analysis, indicating
+that the deeper Spiking ResNet suffers from the degradation problem — the deeper network has
+higher training loss than the shallower network, while SEW ResNet can achieve higher performance
+by simply increasing the network’s depth. Moreover, we show that SEW ResNet outperforms the
+state-of-the-art directly trained SNNs in both accuracy and time-steps. To the best of our knowledge,
+this is the first time to explore the directly-trained deep SNNs with more than 100 layers.
+2 Related Work
+2.1 Learning Methods of Spiking Neural Networks
+ANN to SNN conversion (ANN2SNN) [20, 4, 46, 49, 12, 11, 6, 54, 33] and backpropagation with
+surrogate gradient [40] are the two main methods to get deep SNNs. The ANN2SNN method firstly
+trains an ANN with ReLU activation, then converts the ANN to an SNN by replacing ReLU with
+spiking neurons and adding scaling operations like weight normalization and threshold balancing.
+Some recent conversion methods have achieved near loss-less accuracy with VGG-16 and ResNet [12,
+11, 6, 33]. However, the converted SNN needs a longer time to rival the original ANN in precision
+as the conversion is based on rate-coding [46], which increases the SNN’s latency and restricts the
+practical application. The backpropagation methods can be classified into two categories [26]. The
+method in the first category computes the gradient by unfolding the network over the simulation time￾steps [31, 19, 58, 50, 30, 40], which is similar to the idea of backpropagation through time (BPTT). As
+the gradient with respect to the threshold-triggered firing is non-differentiable, the surrogate gradient
+is often used. The SNN trained by the surrogate method is not limited to rate-coding, and can also be
+applied on temporal tasks, e.g., classifying neuromorphic datasets [58, 8, 16]. The second method
+computes the gradients of the timings of existing spikes with respect to the membrane potential at the
+spike timing [5, 39, 24, 65, 63].
+2.2 Spiking Residual Structure
+Previous ANN2SNN methods noticed the distinction between plain feedforward ANNs and residual
+ANNs, and made specific normalization for conversion. Hu et al. [17] were the first to apply the
+residual structure in ANN2SNN with scaled shortcuts in SNN to match the activations of the original
+ANN. Sengupta et al. [49] proposed Spike-Norm to balance SNN’s threshold and verified their
+method by converting VGG and ResNet to SNNs. Existing backpropagation-based methods use
+nearly the same structure from ResNet. Lee et al. [30] evaluated their custom surrogate methods
+on shallow ResNets whose depths are no more than ResNet-11. Zheng et al. [64] proposed the
+threshold-dependent batch normalization (td-BN) to replace naive batch normalization (BN) [23] and
+successfully trained Spiking ResNet-34 and Spiking ResNet-50 directly with surrogate gradient by
+adding td-BN in shortcuts.
+3 Methods
+3.1 Spiking Neuron Model
+The spiking neuron is the fundamental computing unit of SNNs. Similar to Fang et al. [8], we use a
+unified model to describe the dynamics of all kinds of spiking neurons, which includes the following
+2
+Conv
+BN
+SN
+Conv
+BN
++
+SN
+ℱ
+𝑙(𝑆
+𝑙[𝑡])
+𝑆
+𝑙[𝑡]
+𝑂
+𝑙[𝑡]
+(b) Basic block in Spiking ResNet
+Conv
+BN
+SN
+Conv
+BN
+SN
+𝑔
+ℱ
+𝑙(𝑆
+𝑙[𝑡])
+𝑆
+𝑙[𝑡]
+𝑂
+𝑙[𝑡]
+𝐴
+𝑙[𝑡]
+(c) Spike-Element-Wise block
+Conv
+BN
+ReLU
+Conv
+BN
++
+ReLU
+ℱ
+𝑙(𝑋
+𝑙)
+𝑋
+𝑙
+𝑌
+𝑙
+(a) Basic block in ResNet
+Figure 1: Residual blocks in ResNet, Spiking ResNet and SEW ResNet.
+discrete-time equations:
+H[t] = f(V [t − 1], X[t]), (1)
+S[t] = Θ(H[t] − Vth), (2)
+V [t] = H[t] (1 − S[t]) + Vreset S[t], (3)
+where X[t] is the input current at time-step t, H[t] and V [t] denote the membrane potential after
+neuronal dynamics and after the trigger of a spike at time-step t, respectively. Vth is the firing
+threshold, Θ(x) is the Heaviside step function and is defined by Θ(x) = 1 for x ≥ 0 and Θ(x) = 0
+for x < 0. S[t] is the output spike at time-step t, which equals 1 if there is a spike and 0 otherwise.
+Vreset denotes the reset potential. The function f(·) in Eq. (1) describes the neuronal dynamics and
+takes different forms for different spiking neuron models. For example, the function f(·) for the
+Integrate-and-Fire (IF) model and Leaky Integrate-and-Fire (LIF) model can be described by Eq. (4)
+and Eq. (5), respectively.
+H[t] = V [t − 1] + X[t], (4)
+H[t] = V [t − 1] + 1
+τ
+(X[t] − (V [t − 1] − Vreset)), (5)
+where τ represents the membrane time constant. Eq. (2) and Eq. (3) describe the spike generation
+and resetting processes, which are the same for all kinds of spiking neuron models. In this paper, the
+surrogate gradient method is used to define Θ0 (x) , σ
+0 (x) during error back-propagation, with σ(x)
+denoting the surrogate function.
+3.2 Drawbacks of Spiking ResNet
+The residual block is the key component of ResNet. Fig. 1(a) shows the basic block in ResNet [14],
+where Xl
+, Y l
+are the input and output of the l-th block in ResNet, Conv is the convolutional layer, BN
+denotes batch normalization, and ReLU denotes the rectified linear unit activation layer. The basic
+block of Spiking ResNet used in [64, 17, 30] simply mimics the block in ANNs by replacing ReLU
+activation layers with spiking neurons (SN), which is illustrated in Fig. 1(b). Here S
+l
+[t], Ol
+[t] are the
+input and output of the l-th block in Spiking ResNet at time-step t. Based on the above definition, we
+will analyze the drawbacks of Spiking ResNet below.
+Spiking ResNet is inapplicable to all neuron models to achieve identity mapping. One of the
+critical concepts in ResNet is identity mapping. He et al. [14] noted that if the added layers implement
+the identity mapping, a deeper model should have training error no greater than its shallower
+counterpart. However, it is unable to train the added layers to implement identity mapping in a
+feasible time, resulting in deeper models performing worse than shallower models (the degradation
+problem). To solve this problem, the residual learning is proposed by adding a shortcut connection
+(shown in Fig. 1(a)). If we use F
+l
+to denote the residual mapping, e.g., a stack of two convolutional
+layers, of the l-th residual block in ResNet and Spiking ResNet, then the residual block in Fig.1(a)
+3
+and Fig.1(b) can be formulated as
+Y
+l = ReLU(F
+l
+(Xl
+) + Xl
+), (6)
+O
+l
+[t] = SN(F
+l
+(S
+l
+[t]) + S
+l
+[t]). (7)
+The residual block of Eq. (6) make it easy to implement identity mapping in ANNs. To see this, when
+F
+l
+(Xl
+) ≡ 0, Y
+l = ReLU(Xl
+). In most cases, Xl
+is the activation of the previous ReLU layer and
+Xl ≥ 0. Thus, Y
+l = ReLU(Xl
+) = Xl
+, which is identity mapping.
+Different from ResNet, the residual block in Spiking ResNet (Eq. (7)) restricts the models of spiking
+neuron to implement identity mapping. When F
+l
+(S
+l
+[t]) ≡ 0, Ol
+[t] = SN(S
+l
+[t]) = S
+l
+[t]. To transmit
+S
+l
+[t] and make SN(S
+l
+[t]) = S
+l
+[t], the last spiking neuron (SN) in the l-th residual block needs to fire
+a spike after receiving a spike, and keep silent after receiving no spike at time-step t. It works for IF
+neuron described by Eq. (4). Specifically, we can set 0 < Vth ≤ 1 and V [t − 1] = 0 to ensure that
+X[t] = 1 leads to H[t] ≥ Vth, and X[t] = 0 leads to H[t] < Vth. However, when considering some
+spiking neuron models with complex neuronal dynamics, it is hard to achieve SN(S
+l
+[t]) = S
+l
+[t].
+For example, the LIF neuron used in [66, 8, 61] considers a learnable membrane time constant τ ,
+the neuronal dynamics of which can be described with Eq. (5). When X[t] = 1 and V [t − 1] = 0,
+H[t] = τ
+1
+. It is difficult to find a firing threshold that ensures H[t] > Vth as τ is being changed in
+training by the optimizer.
+Spiking ResNet suffers from the problems of vanishing/exploding gradient. Consider a spiking
+ResNet with k sequential blocks to transmit S
+l
+[t], and the identity mapping condition is met, e.g.,
+the spiking neurons are the IF neurons with 0 < Vth ≤ 1, then we have S
+l
+[t] = S
+l+1[t] = ... =
+S
+l+k−1
+[t] = Ol+k−1
+[t]. Denote the j-th element in S
+l
+[t] and Ol
+[t] as Sj
+l
+[t] and Oj
+l
+[t] respectively,
+the gradient of the output of the (l + k − 1)-th residual block with respect to the input of the l-th
+residual block can be calculated layer by layer:
+∂Oj
+l+k−1
+[t]
+∂Sj
+l
+[t]
+=
+k−1
+Y
+i=0
+∂Ol+i
+j
+[t]
+∂Sl+i
+j
+[t]
+=
+k−1
+Y
+i=0
+Θ
+0 (Sj
+l+i
+[t] − Vth) →
+
+
+
+0, if 0 < Θ0 (S
+l
+j
+[t] − Vth) < 1
+1, if Θ0 (S
+l
+j
+[t] − Vth) = 1
++∞, if Θ0 (S
+l
+j
+[t] − Vth) > 1
+,
+(8)
+where Θ(x) is the Heaviside step function and Θ0 (x) is defined by the surrogate gradient. The
+second equality hold as Oj
+l+i
+[t] = SN(Sj
+l+i
+[t]). In view of the fact that Sj
+l
+[t] can only take 0 or 1,
+Θ0 (Sj
+l
+[t] − Vth) = 1 is not satisfied for commonly used surrogate functions mentioned in [40]. Thus,
+the vanishing/exploding gradient problems are prone to happen in deeper Spiking ResNet.
+Based on the above analysis, we believe that the previous Spiking ResNet ignores the highly nonlinear
+caused by spiking neurons, and can hardly implement residual learning. Nonetheless, the basic block
+in Fig. 1(b) is still decent for ANN2SNN with extra normalization [17, 49], as the SNN converted
+from ANN aims to use firing rates to match the origin ANN’s activations.
+3.3 Spike-Element-Wise ResNet
+Here we propose the Spike-Element-Wise (SEW) residual block to realize the residual learning in
+SNNs, which can easily implement identity mapping and overcome the vanishing/exploding gradient
+problems at the same time. As illustrated in Fig. 1(c), the SEW residual block can be formulated as:
+O
+l
+[t] = g(SN(F
+l
+(S
+l
+[t])), Sl
+[t]) = g(A
+l
+[t], Sl
+[t]), (9)
+where g represents an element-wise function with two spikes tensor as inputs. Here we use Al
+[t] to
+denote the residual mapping to be learned as Al
+[t] = SN(F
+l
+(S
+l
+[t])).
+Name Expression of g(Al
+[t], Sl
+[t])
+ADD Al
+[t] + S
+l
+[t]
+AND Al
+[t] ∧ S
+l
+[t] = Al
+[t] · S
+l
+[t]
+IAND (¬Al
+[t]) ∧ S
+l
+[t] = (1 − Al
+[t]) · S
+l
+[t]
+Table 1: List of element-wise functions g.
+SEW ResNet can easily implement identity map￾ping. By utilizing the binary property of spikes, we
+can find different element-wise functions g that sat￾isfy identity mapping (shown in Tab. 1). To be spe￾cific, when choosing ADD and IAND as element-wise
+functions g, identity mapping is achieved by setting
+Al
+[t] ≡ 0, which can be implemented simply by setting
+4
+ℱ
+𝑙
++
+SN
+𝑆
+𝑙[𝑡]
+𝑂
+𝑙[𝑡]
+Conv
+BN
+ℱ
+𝑙
+𝑔
+𝑆
+𝑙[𝑡]
+𝑂
+𝑙[𝑡]
+Conv
+BN
+SN SN
+(a) Downsample basic block
+ℱ
+𝑙
++
+SN
+𝑆
+𝑙[𝑡]
+𝑂
+𝑙[𝑡]
+Conv
+BN
+ℱ
+𝑙
+𝑔
+𝑆
+𝑙[𝑡]
+𝑂
+𝑙[𝑡]
+Conv
+BN
+SN SN
+(b) Downsample SEW block
+Figure 2: Downsample blocks in Spiking ResNet and SEW ResNet.
+the weights and the bias of the last batch normalization layer (BN) in F
+l
+to zero. Then we can get
+Ol
+[t] = g(Al
+[t], Sl
+[t]) = g(SN(0), Sl
+[t]) = g(0, Sl
+[t]) = S
+l
+[t]. This is applicable to all neuron
+models. When using AND as the element-wise function g, we set Al
+[t] ≡ 1 to get identity mapping.
+It can be implemented by setting the last BN’s weights to zero and the bias to a large enough con￾stant to cause spikes, e.g., setting the bias as Vth when the last SN is IF neurons. Then we have
+Ol
+[t] = 1∧S
+l
+[t] = S
+l
+[t]. Note that using AND may suffer from the same problem as Spiking ResNet.
+It is hard to control some spiking neuron models with complex neuronal dynamics to generate spikes
+at a specified time-step.
+Formulation of downsample block. Remarkably, when the input and output of one block have
+different dimensions, the shortcut is set as convolutional layers with stride > 1, rather than the
+identity connection, to perform downsampling. The ResNet and the Spiking ResNet utilize {Conv￾BN} without ReLU in shortcut (Fig. 2(a)). In contrast, we add a SN in shortcut (Fig. 2(b)).
+SEW ResNet can overcome vanishing/exploding gradient. The SEW block is similar to ReLU
+before addition (RBA) block [15] in ANNs, which can be formulated as
+Y
+l = ReLU(F
+l
+(Xl
+)) + Xl
+. (10)
+The RBA block is criticized by He et al. [15] for Xl+1 = Y
+l ≥ Xl
+, which will cause infinite outputs
+in deep layers. The experiment results in [15] also showed that the performance of the RBA block is
+worse than the basic block (Fig.1(a)). To some extent, the SEW block is an extension of the RBA
+block. Note that using AND and IAND as g will output spikes (i.e. binary tensors), which means that
+the infinite outputs problem in ANNs will never occur in SNNs with SEW blocks, since all spikes are
+less or equal than 1. When choosing ADD as g, the infinite outputs problem can be relieved as the
+output of k sequential SEW blocks will be no larger than k + 1. In addition, a downsample SEW
+block will regulate the output to be no larger than 2 when g is ADD.
+When the identity mapping is implemented, the gradient of the output of the (l + k − 1)-th SEW
+block with respect to the input of the l-th SEW block can be calculated layer by layer:
+∂Oj
+l+k−1
+[t]
+∂Sj
+l
+[t]
+=
+k−1
+Y
+i=0
+∂g(A
+l+i
+j
+[t], Sl+i
+j
+[t])
+∂Sl+i
+j
+[t]
+=
+
+
+
+Q
+k
+i=0
+−1 ∂(0+Sj
+l+i
+[t])
+∂Sl+i
+j
+[t]
+, if g = ADD
+Q
+k
+i=0
+−1 ∂(1·S
+l+i
+j
+[t])
+∂Sl+i
+j
+[t]
+, if g = AND
+Q
+k
+i=0
+−1 ∂((1−0)·S
+l+i
+j
+[t])
+∂Sl+i
+j
+[t]
+, if g = IAND
+= 1. (11)
+The second equality holds as identity mapping is achieved by setting Al+i
+[t] ≡ 1 for g = AND, and
+Al+i
+[t] ≡ 0 for g = ADD/IAND. Since the gradient in Eq. (11) is a constant, the SEW ResNet can
+overcome the vanishing/exploding gradient problems.
+4 Experiments
+4.1 ImageNet Classification
+As the test server of ImageNet 2012 is no longer available, we can not report the actual test accuracy.
+Instead, we use the accuracy on the validation set as the test accuracy, which is the same as [17, 64].
+5
+0 50 100 150 200 250 300
+epoch
+1
+2
+3
+4
+5
+6
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+1
+2
+3
+4
+5
+6
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+80
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+80
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+0 50 100 150 200 250 300
+epoch
+20
+30
+40
+50
+60
+70
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+(a) Training loss
+0 50 100 150 200 250 300
+epoch
+1
+2
+3
+4
+5
+6
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+1
+2
+3
+4
+5
+6
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+80
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+80
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+0 50 100 150 200 250 300
+epoch
+20
+30
+40
+50
+60
+70
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+(b) Training accuracy
+0 50 100 150 200 250 300
+epoch
+1
+2
+3
+4
+5
+6
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+1
+2
+3
+4
+5
+6
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+80
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+80
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+0 50 100 150 200 250 300
+epoch
+20
+30
+40
+50
+60
+70
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+SEW ResNet-101
+SEW ResNet-152
+0 50 100 150 200 250 300
+epoch
+0
+10
+20
+30
+40
+50
+60
+70
+Spiking ResNet-18
+Spiking ResNet-34
+Spiking ResNet-50
+Spiking ResNet-101
+Spiking ResNet-152
+(c) Test accuracy
+Figure 3: Comparison of the training loss, training accuracy and test accuracy on ImageNet.
+Network SEW ResNet (ADD) Spiking ResNet
+Acc@1(%) Acc@5(%) Acc@1(%) Acc@5(%)
+ResNet-18 63.18 84.53 62.32 84.05
+ResNet-34 67.04 87.25 61.86 83.69
+ResNet-50 67.78 87.52 57.66 80.43
+ResNet-101 68.76 88.25 31.79 54.91
+ResNet-152 69.26 88.57 10.03 23.57
+Table 2: Test accuracy on ImageNet.
+He et al. [14] evaluated the 18/34/50/101/152-layer ResNets on the ImageNet dataset. For comparison,
+we consider the SNNs with the same network architectures, except that the basic residual block
+(Fig.1(a)) is replaced by the spiking basic block (Fig.1(b)) and SEW block (Fig.1(c)) with g as ADD,
+respectively. We denote the SNN with the basic block as Spiking ResNet and the SNN with the SEW
+block as SEW ResNet. The IF neuron model is adopted for the static ImageNet dataset. During
+training on ImageNet, we find that the Spiking ResNet-50/101/152 can not converge unless we use the
+zero initialization [10], which sets all blocks to be an identity mapping at the start of training. Thus,
+the results of Spiking ResNet-18/34/50/101/152 reported in this paper are with zero initialization.
+Spiking ResNet vs. SEW ResNet. We first evaluate the performance of Spiking ResNet and SEW
+ResNet. Tab. 2 reports the test accuracy on ImageNet validation. The results show that the deeper
+34-layer Spiking ResNet has lower test accuracy than the shallower 18-layer Spiking ResNet. As the
+layer increases, the test accuracy of Spiking ResNet decreases. To reveal the reason, we compare the
+training loss, training accuracy, and test accuracy of Spiking ResNet during the training procedure,
+which is shown in Fig. 3. We can find the degradation problem of the Spiking ResNet — the deeper
+network has higher training loss than the shallower network. In contrast, the deeper 34-layer SEW
+ResNet has higher test accuracy than the shallower 18-layer SEW ResNet (shown in Tab. 2). More
+importantly, it can be found from Fig. 3 that the training loss of our SEW ResNet decreases and the
+training/test accuracy increases with the increase of depth, which indicates that we can obtain higher
+performance by simply increasing the network’s depth. All these results imply that the degradation
+problem is well addressed by SEW ResNet.
+Comparisons with State-of-the-art Methods. In Tab. 3, we compare SEW ResNet with previous
+Spiking ResNets that achieve the best results on ImageNet. To our best knowledge, the SEW ResNet-
+101 and the SEW ResNet-152 are the only SNNs with more than 100 layers to date, and there are no
+other networks with the same structure to compare. When the network structure is the same, our SEW
+ResNet outperforms the state-of-the-art accuracy of directly trained Spiking ResNet, even with fewer
+6
+training loss
+training loss
+training accuracy(%)
+training accuracy(%)
+test accuracy(%)
+test accuracy(%)
+training loss
+training loss
+training accuracy(%)
+training accuracy(%)
+test accuracy(%)
+test accuracy(%)
+training loss
+training loss
+training accuracy(%)
+training accuracy(%)
+test accuracy(%)
+test accuracy(%)
+Network Methods Accuracy(%) T
+SEW ResNet-34 Spike-based BP 67.04 4
+Spiking ResNet-34(large)† with td-BN [64] Spike-based BP 67.05 6
+Spiking ResNet-34 with td-BN [64] Spike-based BP 63.72 6
+Spiking ResNet-34 [12] ANN2SNN 69.89 4096
+Spiking ResNet-34 [49] ANN2SNN 65.47 2000
+Spiking ResNet-34 [33] ANN2SNN 74.61 256
+Spiking ResNet-34 [43] ANN2SNN and Spike-based BP 61.48 250
+SEW ResNet-50 Spike-based BP 67.78 4
+Spiking ResNet-50 with td-BN [64] Spike-based BP 64.88 6
+Spiking ResNet-50 [17] ANN2SNN 72.75 350
+SEW ResNet-101 Spike-based BP 68.76 4
+SEW ResNet-152 Spike-based BP 69.26 4
+Table 3: Comparison with previous Spiking ResNet on ImageNet. † has the same network structure
+as the standard Spiking ResNet-34, but uses four times as many the number of convolution kernels.
+0 7 15
+block index l
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+SEW ResNet-18
+SEW ResNet-34
+SEW ResNet-50
+33 50
+block index l
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+SEW ResNet-101
+SEW ResNet-152
+Figure 4: Firing rates of Al
+in SEW blocks on ImageNet.
+time-steps T. The accuracy of SEW ResNet-34 is slightly lower than Spiking ResNet-34 (large) with
+td-BN (67.04% v.s. 67.05%), which uses 1.5 times as many simulating time-steps T (6 v.s. 4) and 4
+times as many the number of parameters (85.5M v.s. 21.8M), compared with our SEW ResNet. The
+state-of-the-art ANN2SNN methods [33, 17] have better accuracy than our SEW ResNet, but they
+respectively use 64 and 87.5 times as many time-steps as ours.
+Analysis of spiking response of SEW blocks. Fig. 4 shows the firing rates of Al
+in SEW ResNet-
+18/34/50/101/152 on ImageNet. There are 7 blocks in SEW ResNet-18, 15 blocks in SEW ResNet-34
+and SEW ResNet-50, 33 blocks in SEW ResNet-101, and 50 blocks in SEW ResNet-152. The
+downsample SEW blocks are marked by the triangle down symbol O . As we choose ADD as element￾wise functions g, a lower firing rate means that the SEW block gets closer to implementing identity
+mapping, except for downsample blocks. Note that the shortcuts of downsample blocks are not
+identity mapping, which is illustrated in Fig. 2(b). Fig. 4 shows that all spiking neurons in SEW
+blocks have low firing rates, and the spiking neurons in the last two blocks even have firing rates of
+almost zero. As the time-steps T is 4 and firing rates are no larger than 0.25, all neurons in SEW
+ResNet-18/34/50 fire on average no more than one spike during the whole simulation. Besides, all
+firing rates in SEW ResNet-101/152 are not larger than 0.5, indicating that all neurons fire on average
+not more than two spikes. In general, the firing rates of Al
+in SEW blocks are at a low level, verifying
+that most SEW blocks act as identity mapping.
+Gradients Check on ResNet-152 Structure. Eq. (8) and Eq. (11) analyze the gradients of multiple
+blocks with identity mapping. To verify that SEW ResNet can overcome vanishing/exploding gradient,
+we check the gradients of Spiking ResNet-152 and SEW ResNet-152, which are the deepest standard
+ResNet structure. We consider the same initialization parameters and with/without zero initialization.
+As the gradients of SNNs are significantly influenced by firing rates (see Sec.A.4), we analyze the
+firing rate firstly. Fig. 5(a) shows the initial firing rate of l-th block’s output Ol
+. The indexes of
+downsample blocks are marked by vertical dotted lines. The blocks between two adjacent dotted lines
+represent the identity mapping areas, and have inputs and outputs with the same shape. When using
+zero initialization, Spiking ResNet, SEW AND ResNet, SEW IAND ResNet, and SEW ADD ResNet
+have the same firing rates (green curve), which is the zero init curve. Without zero initialization,
+the silence problem happens in the SEW AND network (red curve), and is relieved by the SEW
+IAND network (purple curve). Fig. 5(b) shows the firing rate of Al
+, which represents the output
+of last SN in l-th block. It can be found that although the firing rate of Ol
+in SEW ADD ResNet
+increases linearly in the identity mapping areas, the last SN in each block still maintains a stable
+firing rate. Note that when g is ADD, the output of the SEW block is not binary, and the firing
+7
+firing rate
+rate is actually the mean value. The SNs of SEW IAND ResNet maintain an adequate firing rate
+and decay slightly with depth (purple curve), while SNs in deep layers of SEW AND ResNet
+keep silent (orange curve). The silence problem can be explained as follows. When using AND,
+Ol
+[t] = SN(F
+l
+(Ol−1
+[t])) ∧ Ol−1
+[t] ≤ Ol−1
+[t]. Since it is hard to keep SN(F
+l
+(Ol−1
+[t])) ≡ 1 at
+each time-step t, the silence problem may frequently happen in SEW ResNet with AND as g. Using
+IAND as a substitute of AND can relieve this problem because it is easy to keep SN(F
+l
+(Ol−1
+[t])) ≡ 0
+at each time-step t.
+0
+1
+2
+3
+4
+5
+7
+0 49
+Spiking ResNet
+SEW IAND
+SEW AND
+zero init
+SEW ADD
+10 20 30 40
+0.30
+0.25
+0.20
+0.15
+0.10
+0.05
+0.00
+6
+0.30
+0.25
+0.20
+0.15
+0.10
+0.05
+0.00
+0 10 20 30 40 0 10 20 30 40
+SEW ADD
+SEW AND
+SEW IAND
+Spiking ResNet
+49 49
+block index l block index l block index l
+0
+1
+2
+3
+4
+5
+7
+0 49
+Spiking ResNet
+SEW IAND
+SEW AND
+zero init
+SEW ADD
+10 20 30 40
+0.30
+0.25
+0.20
+0.15
+0.10
+0.05
+0.00
+6
+0.30
+0.25
+0.20
+0.15
+0.10
+0.05
+0.00
+0 10 20 30 40 0 10 20 30 40
+SEW ADD
+SEW AND
+SEW IAND
+Spiking ResNet
+49 49
+block index l block index l block index l
+(a) Firing rate of output O
+l
+0
+1
+2
+3
+4
+5
+7
+0 49
+Spiking ResNet
+SEW IAND
+SEW AND
+zero init
+SEW ADD
+10 20 30 40
+0.30
+0.25
+0.20
+0.15
+0.10
+0.05
+0.00
+6
+0.30
+0.25
+0.20
+0.15
+0.10
+0.05
+0.00
+0 10 20 30 40 0 10 20 30 40
+SEW ADD
+SEW AND
+SEW IAND
+Spiking ResNet
+49 49
+block index l block index l block index l
+(b) Firing rate of A
+l
+Figure 5: The initial firing rates of output Ol
+and Al
+in l-th block on 152-layer network.
+The surrogate gradient function we used in all experiments is σ(x) = π
+1
+arctan( π
+2
+αx) + 1
+2
+, thus
+σ
+0 (x) = 2(1+(
+α
+π
+2 αx)
+2)
+. When Vth = 1, α = 2, the gradient amplitude
+  ∂L
+∂Sl
+
+ of each block is shown
+in Fig. 6. Note that α = 2, σ
+0 (x) ≤ σ
+0 (0) = σ
+0 (1 − Vth) = 1 and σ
+0 (0 − Vth) = 0.092 < 1. It can
+be found that the gradients in Spiking ResNet-152 decay from deeper layers to shallower layers in the
+identity mapping areas without zero initialization, which is caused by σ
+0 (x) ≤ 1. It is worth noting
+that the decay also happens in Spiking ResNet-152 with zero initialization. The small convex V near
+the dotted lines is caused by the vanishing gradients of those Sj
+l
+[t] = 0. After these gradients decays
+to 0 completely,
+  ∂L
+∂Sl
+
+ will be a constant because the rest gradients are calculated by Sj
+l
+[t] = 1 and
+σ
+0 (1 − Vth) = 1, which can also explain why the gradient-index curve is horizontal at some areas.
+When referring to SEW ResNet-152 with zero initialization, it can be found that all gradient-index
+curves are similar no matter what g we choose. This is caused by that in the identity mapping areas,
+S
+l
+is constant for all index l, and the gradient also becomes a constant as it will not flow through SNs.
+Without zero initialization, the vanishing gradient happens in the SEW AND ResNet-152, which is
+caused by the silence problem. The gradients of SEW ADD, IAND network increase slowly when
+propagating from deeper layers to shallower layers, due to the adequate firing rates shown in Fig. 5.
+When Vth = 0.5, α = 2, σ
+0 (0 − Vth) = σ
+0 (1 − Vth) = 0.288 < 1, indicating that transmitting
+spikes to SNs is prone to causing vanishing gradient, as shown in Fig. 7. With zero initialization,
+the decay in Spiking ResNet-152 is more serious because gradient from F
+l
+can not contribute.
+The SEW ResNet-152 will not be affected no matter what g we choose. When Vth = 1, α = 3,
+σ
+0 (1 − Vth) = 1.5 > 1, indicating that transmitting spikes to SNs is prone to causing exploding
+gradient. Fig. 8 shows the gradient in this situation. Same with the reason in Fig. 6, the change of
+surrogate function will increase gradients of all networks without zero initialization, but not affect
+SEW ResNet-152 with zero initialization. The Spiking ResNet-152 meets exploding gradient, while
+this problem in SEW ADD, IAND ResNet-152 is not serious.
+4.2 DVS Gesture Classification
+The origin ResNet, which is designed for classifying the complex ImageNet dataset, is too large
+for the DVS Gesture dataset. Hence, we design a tiny network named 7B-Net, whose structure is
+c32k3s1-BN-PLIF-{SEW Block-MPk2s2}*7-FC11. Here c32k3s1 means the convolutional layer with
+channels 32, kernel size 3, stride 1. MPk2s2 is the max pooling with kernel size 2, stride 2. The
+symbol {}*7 denotes seven repeated structure, and PLIF denotes the Parametric Leaky-Integrate-and￾Fire Spiking Neuron with a learnable membrane time constant, which is proposed in [8] and can be
+described by Eq. (5). See Sec.A.1 for AER data pre-processing details.
+8
+firing rate
+0.000
+0.002
+0.005
+0 000
+0.001
+0.002
+Spiking ResNet-152
+Spiking ResNet-152(zero init)
+0.00
+0.02
+0.05
+0 0000
+0.0015
+0.0030
+SEW AND ResNet-152
+SEW AND ResNet-152(zero init)
+0 000
+0.006
+0.016
+0
+.
+000
+0.003
+0.006
+SEW ADD ResNet-152
+SEW ADD ResNet-152(zero init)
+0 00
+0.06
+0.16
+0.000
+0.003
+0.006
+SEW IAND ResNet-152
+SEW IAND ResNet-152(zero init)
+0 10 20 30 40 0 10 20 30 40 0 10 20 30 40 0 10 20 30 40 49 49 49 49
+block index l block index l block index l block index l
+∂L
+∂ S l l l l l
+Figure 6: Gradient amplitude
+  ∂L
+∂Sl
+
+ of l-th block when Vth = 1, α = 2.
+Spiking ResNet-152
+Spiking ResNet-152(zero init)
+SEW AND ResNet-152
+SEW AND ResNet-152(zero init)
+SEW ADD ResNet-152
+SEW ADD ResNet-152(zero init)
+SEW IAND ResNet-152
+SEW IAND ResNet-152(zero init)
+0 10 20 30 40 0 10 20 30 40
+0.0000
+0.0010
+0.0025
+0
+.
+0000
+0.0008
+0.0016
+0
+.
+000
+0.002
+0.006
+0
+.
+000
+0.003
+0.006
+0 00
+0.02
+0.05
+0 0000
+0.0015
+0.0030
+0
+10
+25
+0 000
+0.002
+0.004
+0 10 20 30 40 0 10 20 30 40 49 49 49 49
+∂L
+∂ S l l l l l
+block index l block index l block index l block index l
+Figure 7: Gradient amplitude
+  ∂L
+∂Sl
+
+ of l-th block when Vth = 0.5, α = 2.
+Spiking ResNet vs. SEW ResNet. We first compare the performance of SEW ResNet with ADD
+element-wise function (SEW ADD ResNet) and Spiking ResNet by replacing SEW blocks with basic
+blocks. As shown in Fig. 9 and Tab. 4, although the training loss of Spiking ResNet (blue curve) is
+lower than SEW ADD ResNet (orange curve), the test accuracy is lower than SEW ADD ResNet
+(90.97% v.s. 97.92%), which implies that Spiking ResNet is easier to overfit than SEW ADD ResNet.
+Evaluation of different element-wise functions and plain block. As the training cost of SNNs
+on the DVS Gesture dataset is much lower than on ImageNet, we carry out more ablation ex￾periments on the DVS Gesture dataset. We replace SEW blocks with the plain blocks (no short￾cut connection) and test the performance. We also evaluate all kinds of element-wise functions
+g in Tab. 1. Fig. 9 shows the training loss and training/test accuracy on DVS Gesture. The
+sharp fluctuation during early epochs is caused by the large learning rate (see Sec.A.1). We
+can find that the training loss is SEW IAND<Spiking ResNet<SEW ADD<Plain Net<SEW
+AND. Due to the overfitting problem, a lower loss does not guarantee a higher test accuracy.
+Network Element-Wise Function g Accuracy(%)
+SEW ResNet ADD 97.92
+SEW ResNet IAND 95.49
+Plain Net − 91.67
+Spiking ResNet − 90.97
+SEW ResNet AND 70.49
+Table 4: Test accuracy on DVS Gesture. The networks’
+order is ranked by accuracy.
+Tab. 4 shows the test accuracy of all net￾works. The SEW ADD ResNet gets the
+highest accuracy than others.
+Comparisons with State-of-the-art
+Methods. Tab. 5 compares our network
+with SOTA methods. It can be found
+that our SEW ResNet outperforms the
+SOTA works in accuracy, parameter
+numbers, and simulating time-steps.
+Network Accuracy(%) Parameters T
+c32k3s1-BN-PLIF-{SEW Block (c32) -MPk2s2}*7-FC11 (7B-Net) 97.92 0.13M 16
+{c128k3s1-BN-PLIF-MPk2s2}*5-DP￾FC512-PLIF-DP-FC110-PLIF-APk10s10 [8] 97.57 1.70M 20
+Spiking ResNet-17 with td-BN [64] 96.87 11.18M 40
+MPk4-c64k3-LIF-c128k3-LIF-APk2-c128k3-LIF-APk2-FC256-LIF-FC11[16] 93.40 23.23M 60
+Table 5: Comparison with the state-of-the-art (SOTA) methods on DVS Gesture dataset.
+4.3 CIFAR10-DVS Classification
+We also report SEW ResNet on the CIFAR10-DVS dataset, which is obtained by recording the
+moving images of the CIFAR-10 dataset on a LCD monitor by a DVS camera. As CIFAR10-DVS is
+more complicated than DVS Gesture, we use the network structure named Wide-7B-Net, which is
+similar to 7B-Net but with more channels. The structure of Wide-7B-Net is c64k3s1-BN-PLIF-{SEW
+Block (c64)-MPk2s2}*4-c128k3s1-BN-PLIF-{SEW Block (c128)-MPk2s2}*3-FC10.
+9
+Spiking ResNet-152
+Spiking ResNet-152(zero init)
+∂L
+∂ S l
+SEW AND ResNet-152
+SEW AND ResNet-152(zero init)
+SEW ADD ResNet-152
+SEW ADD ResNet-152(zero init)
+SEW IAND ResNet-152
+SEW IAND ResNet-152(zero init)
+0
+2
+4
+×108
+0
+100000
+250000
+0
+2
+4
+0 000
+0.004
+0.009
+0 00
+0.02
+0.05
+0 000
+0.001
+0.004
+0
+20
+60
+0 000
+0.004
+0.009
+l l l l
+0 10 20 30 40 0 10 20 30 40 0 10 20 30 40 0 10 20 30 40 49 49 49 49
+block index l block index l block index l block index l
+Figure 8: Gradient amplitude
+  ∂L
+∂Sl
+
+ of l-th block when Vth = 1, α = 3.
+0 50 100 150 0 50 100 150
+epoch
+20
+30
+40
+50
+60
+70
+80
+90
+100
+Spiking ResNet
+Plain Net
+SEW ADD
+SEW AND
+SEW IAND
+0 50 100 150
+epoch epoch
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+20
+30
+40
+50
+60
+70
+80
+90
+100
+(a) Training loss
+0 50 100 150 0 50 100 150
+epoch
+20
+30
+40
+50
+60
+70
+80
+90
+100
+Spiking ResNet
+Plain Net
+SEW ADD
+SEW AND
+SEW IAND
+0 50 100 150
+epoch epoch
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+20
+30
+40
+50
+60
+70
+80
+90
+100
+(b) Training accuracy
+0 50 100 150 0 50 100 150
+epoch
+20
+30
+40
+50
+60
+70
+80
+90
+100
+Spiking ResNet
+Plain Net
+SEW ADD
+SEW AND
+SEW IAND
+0 50 100 150
+epoch epoch
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+20
+30
+40
+50
+60
+70
+80
+90
+100
+(c) Test accuracy
+Figure 9: Comparison of the training loss, training accuracy and test accuracy on DVS Gesture
+dataset.
+Network Accuracy(%) Parameters T
+c64k3s1-BN-PLIF-{SEW Block (c64)-MPk2s2}*4-c128k3s1-
+BN-PLIF-{SEW Block (c128)-MPk2s2}*3-FC10 (Wide-7B-Net) 64.8, 70.2, 74.4 1.19M 4, 8, 16
+{c128k3s1-BN-PLIF-MPk2s2}*4-DP-FC512-PLIF-DP￾FC100-PLIF-APk10s10[8] 74.8 17.4M 20
+Spiking ResNet-19 with td-BN [64] 67.8 11.18M 10
+Table 6: Comparison with the state-of-the-art (SOTA) methods on CIFAR10-DVS dataset.
+In Tab.6, we compare SEW ResNet with the previous Spiking ResNet. One can find that our method
+achieves better performance (70.2% v.s. 67.8%) and fewer time-steps (8 v.s. 10) than the Spiking
+ResNet [64]. We also compare our method with the state-of-the-art (SOTA) supervised learning
+methods on CIFAR10-DVS. The accuracy of our Wide-7B-Net is slightly lower than the current
+SOTA method [8] (74.4% v.s. 74.8%), which uses 1.25 times as many simulation time-steps T (20
+v.s. 16) and 14.6 times as many the number of parameters (17.4M v.s. 1.19M). Moreover, when
+reducing T shapely to T = 4, our Wide-7B-Net can still get the accuracy of 64.8%.
+5 Conclusion
+In this paper, we analyze the previous Spiking ResNet whose residual block mimics the standard
+block of ResNet, and find that it can hardly implement identity mapping and suffers from the problems
+of vanishing/exploding gradient. To solve these problems, we propose the SEW residual block and
+prove that it can implement the residual learning. The experiment results on ImageNet, DVS Gesture,
+and CIFAR10-DVS datasets show that our SEW residual block solves the degradation problem, and
+SEW ResNet can achieve higher accuracy by simply increasing the network’s depth. Our work may
+shed light on the learning of “very deep” SNNs.
+6 Acknowledgment
+This work is supported by grants from the National Natural Science Foundation of China under
+contracts No.62027804, No.61825101, and No.62088102.
+10
+training loss
+training accuracy(%)
+test accuracy(%)
+training loss
+training accuracy(%)
+test accuracy(%)
+training loss
+training accuracy(%)
+test accuracy(%)
+References
+[1] Arnon Amir, Brian Taba, David Berg, Timothy Melano, Jeffrey McKinstry, Carmelo Di Nolfo,
+Tapan Nayak, Alexander Andreopoulos, Guillaume Garreau, Marcela Mendoza, Jeff Kusnitz,
+Michael Debole, Steve Esser, Tobi Delbruck, Myron Flickner, and Dharmendra Modha. A low
+power, fully event-based gesture recognition system. In Proceedings of the IEEE Conference on
+Computer Vision and Pattern Recognition (CVPR), pages 7243–7252, 2017.
+[2] Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. Neural machine translation by jointly
+learning to align and translate. In International Conference on Learning Representations (ICLR),
+2015.
+[3] Yoshua Bengio, Yann LeCun, et al. Scaling learning algorithms towards ai. Large-scale Kernel
+Machines, 34(5):1–41, 2007.
+[4] Yongqiang Cao, Yang Chen, and Deepak Khosla. Spiking deep convolutional neural networks
+for energy-efficient object recognition. International Journal of Computer Vision, 113(1):54–66,
+2015.
+[5] Iulia M Comsa, Krzysztof Potempa, Luca Versari, Thomas Fischbacher, Andrea Gesmundo,
+and Jyrki Alakuijala. Temporal coding in spiking neural networks with alpha synaptic function.
+In International Conference on Acoustics, Speech and Signal Processing (ICASSP), pages
+8529–8533. IEEE, 2020.
+[6] Shikuang Deng and Shi Gu. Optimal conversion of conventional artificial neural networks to
+spiking neural networks. In International Conference on Learning Representations (ICLR),
+2021.
+[7] Wei Fang, Yanqi Chen, Jianhao Ding, Ding Chen, Zhaofei Yu, Huihui Zhou, Yonghong
+Tian, and other contributors. Spikingjelly. https://github.com/fangwei123456/
+spikingjelly.
+[8] Wei Fang, Zhaofei Yu, Yanqi Chen, Timothee Masquelier, Tiejun Huang, and Yonghong Tian.
+Incorporating learnable membrane time constant to enhance learning of spiking neural networks.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV), pages
+2661–2671, 2021.
+[9] Ross Girshick, Jeff Donahue, Trevor Darrell, and Jitendra Malik. Rich feature hierarchies for
+accurate object detection and semantic segmentation. In Proceedings of the IEEE Conference
+on Computer Vision and Pattern Recognition (CVPR), pages 580–587, 2014.
+[10] Priya Goyal, Piotr Dollár, Ross Girshick, Pieter Noordhuis, Lukasz Wesolowski, Aapo Kyrola,
+Andrew Tulloch, Yangqing Jia, and Kaiming He. Accurate, large minibatch sgd: Training
+imagenet in 1 hour. arXiv preprint arXiv:1706.02677, 2017.
+[11] Bing Han and Kaushik Roy. Deep spiking neural network: Energy efficiency through time
+based coding. In European Conference on Computer Vision (ECCV), pages 388–404, 2020.
+[12] Bing Han, Gopalakrishnan Srinivasan, and Kaushik Roy. Rmp-snn: Residual membrane
+potential neuron for enabling deeper high-accuracy and low-latency spiking neural network. In
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR),
+pages 13558–13567, 2020.
+[13] Kaiming He and Jian Sun. Convolutional neural networks at constrained time cost. In Proceed￾ings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pages
+5353–5360, 2015.
+[14] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image
+recognition. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition (CVPR), pages 770–778, 2016.
+[15] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Identity mappings in deep residual
+networks. In European Conference on Computer Vision (ECCV), pages 630–645. Springer,
+2016.
+[16] Weihua He, YuJie Wu, Lei Deng, Guoqi Li, Haoyu Wang, Yang Tian, Wei Ding, Wenhui Wang,
+and Yuan Xie. Comparing snns and rnns on neuromorphic vision datasets: Similarities and
+differences. Neural Networks, 132:108–120, 2020.
+11
+[17] Yangfan Hu, Huajin Tang, Yueming Wang, and Gang Pan. Spiking deep residual network. arXiv
+preprint arXiv:1805.01352, 2018.
+[18] Gao Huang, Zhuang Liu, Laurens Van Der Maaten, and Kilian Q Weinberger. Densely connected
+convolutional networks. In Proceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition (CVPR), pages 4700–4708, 2017.
+[19] Dongsung Huh and Terrence J Sejnowski. Gradient descent for spiking neural networks. In
+Advances in Neural Information Processing Systems (NeurIPS), pages 1440–1450, 2018.
+[20] Eric Hunsberger and Chris Eliasmith. Spiking deep networks with lif neurons. arXiv preprint
+arXiv:1510.08829, 2015.
+[21] Sungmin Hwang, Jeesoo Chang, Min-Hye Oh, Kyung Kyu Min, Taejin Jang, Kyungchul Park,
+Junsu Yu, Jong-Ho Lee, and Byung-Gook Park. Low-latency spiking neural networks using
+pre-charged membrane potential and delayed evaluation. Frontiers in Neuroscience, 15:135,
+2021.
+[22] Forrest N Iandola, Song Han, Matthew W Moskewicz, Khalid Ashraf, William J Dally, and
+Kurt Keutzer. Squeezenet: Alexnet-level accuracy with 50x fewer parameters and< 0.5 mb
+model size. arXiv preprint arXiv:1602.07360, 2016.
+[23] Sergey Ioffe and Christian Szegedy. Batch normalization: Accelerating deep network training
+by reducing internal covariate shift. In International Conference on Machine Learning (ICML),
+pages 448–456, 2015.
+[24] Saeed Reza Kheradpisheh and Timothée Masquelier. Temporal backpropagation for spik￾ing neural networks with one spike per neuron. International Journal of Neural Systems,
+30(06):2050027, 2020.
+[25] Jaehyun Kim, Heesu Kim, Subin Huh, Jinho Lee, and Kiyoung Choi. Deep neural networks
+with weighted spikes. Neurocomputing, 311:373–386, 2018.
+[26] Jinseok Kim, Kyungsu Kim, and Jae-Joon Kim. Unifying activation- and timing-based learning
+rules for spiking neural networks. In Advances in Neural Information Processing Systems
+(NeurIPS), pages 19534–19544, 2020.
+[27] Alex Krizhevsky. One weird trick for parallelizing convolutional neural networks. arXiv
+preprint arXiv:1404.5997, 2014.
+[28] Alex Krizhevsky, Ilya Sutskever, and Geoffrey E Hinton. Imagenet classification with deep con￾volutional neural networks. In Advances in Neural Information Processing Systems (NeurIPS),
+pages 1097–1105, 2012.
+[29] Yann LeCun, Yoshua Bengio, and Geoffrey Hinton. Deep learning. Nature, 521(7553):436–444,
+2015.
+[30] Chankyu Lee, Syed Shakib Sarwar, Priyadarshini Panda, Gopalakrishnan Srinivasan, and
+Kaushik Roy. Enabling spike-based backpropagation for training deep neural network architec￾tures. Frontiers in Neuroscience, 14, 2020.
+[31] Jun Haeng Lee, Tobi Delbruck, and Michael Pfeiffer. Training deep spiking neural networks
+using backpropagation. Frontiers in Neuroscience, 10:508, 2016.
+[32] Hongmin Li, Hanchao Liu, Xiangyang Ji, Guoqi Li, and Luping Shi. Cifar10-dvs: An event￾stream dataset for object classification. Frontiers in Neuroscience, 11:309, 2017.
+[33] Yuhang Li, Shikuang Deng, Xin Dong, Ruihao Gong, and Shi Gu. A free lunch from ann:
+Towards efficient, accurate spiking neural networks calibration. In International Conference on
+Machine Learning (ICML), volume 139, pages 6316–6325, 2021.
+[34] Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian Szegedy, Scott Reed, Cheng-Yang
+Fu, and Alexander C Berg. Ssd: Single shot multibox detector. In European Conference on
+Computer Vision (ECCV), pages 21–37. Springer, 2016.
+[35] Ilya Loshchilov and Frank Hutter. SGDR: stochastic gradient descent with warm restarts. In
+International Conference on Learning Representations (ICLR), 2017.
+[36] Paulius Micikevicius, Sharan Narang, Jonah Alben, Gregory Diamos, Erich Elsen, David Garcia,
+Boris Ginsburg, Michael Houston, Oleksii Kuchaiev, Ganesh Venkatesh, et al. Mixed precision
+training. In International Conference on Learning Representations (ICLR), 2018.
+12
+[37] Volodymyr Mnih, Koray Kavukcuoglu, David Silver, Andrei A Rusu, Joel Veness, Marc G
+Bellemare, Alex Graves, Martin Riedmiller, Andreas K Fidjeland, Georg Ostrovski, et al.
+Human-level control through deep reinforcement learning. Nature, 518(7540):529–533, 2015.
+[38] Guido F Montufar, Razvan Pascanu, Kyunghyun Cho, and Yoshua Bengio. On the number of
+linear regions of deep neural networks. In Advances in Neural Information Processing Systems
+(NeurIPS), pages 2924–2932, 2014.
+[39] Hesham Mostafa. Supervised learning based on temporal coding in spiking neural networks.
+IEEE Transactions on Neural Networks and Learning Systems, 29(7):3227–3235, 2017.
+[40] Emre O Neftci, Hesham Mostafa, and Friedemann Zenke. Surrogate gradient learning in spiking
+neural networks: Bringing the power of gradient-based optimization to spiking neural networks.
+IEEE Signal Processing Magazine, 36(6):51–63, 2019.
+[41] Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan,
+Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, Alban Desmaison, Andreas
+Kopf, Edward Yang, Zachary DeVito, Martin Raison, Alykhan Tejani, Sasank Chilamkurthy,
+Benoit Steiner, Lu Fang, Junjie Bai, and Soumith Chintala. Pytorch: An imperative style,
+high-performance deep learning library. In Advances in Neural Information Processing Systems
+(NeurIPS), pages 8026–8037, 2019.
+[42] Nitin Rathi and Kaushik Roy. Diet-snn: Direct input encoding with leakage and threshold
+optimization in deep spiking neural networks. arXiv preprint arXiv:2008.03658, 2020.
+[43] Nitin Rathi, Gopalakrishnan Srinivasan, Priyadarshini Panda, and Kaushik Roy. Enabling deep
+spiking neural networks with hybrid conversion and spike timing dependent backpropagation.
+In International Conference on Learning Representations (ICLR), 2020.
+[44] Joseph Redmon, Santosh Divvala, Ross Girshick, and Ali Farhadi. You only look once: Unified,
+real-time object detection. In Proceedings of the IEEE Conference on Computer Vision and
+Pattern Recognition (CVPR), pages 779–788, 2016.
+[45] Kaushik Roy, Akhilesh Jaiswal, and Priyadarshini Panda. Towards spike-based machine
+intelligence with neuromorphic computing. Nature, 575(7784):607–617, 2019.
+[46] Bodo Rueckauer, Iulia-Alexandra Lungu, Yuhuang Hu, Michael Pfeiffer, and Shih-Chii Liu.
+Conversion of continuous-valued deep networks to efficient event-driven networks for image
+classification. Frontiers in Neuroscience, 11:682, 2017.
+[47] Olga Russakovsky, Jia Deng, Hao Su, Jonathan Krause, Sanjeev Satheesh, Sean Ma, Zhiheng
+Huang, Andrej Karpathy, Aditya Khosla, Michael Bernstein, et al. Imagenet large scale visual
+recognition challenge. International Journal of Computer Vision, 115(3):211–252, 2015.
+[48] Ali Samadzadeh, Fatemeh Sadat Tabatabaei Far, Ali Javadi, Ahmad Nickabadi, and
+Morteza Haghir Chehreghani. Convolutional spiking neural networks for spatio-temporal
+feature extraction. arXiv preprint arXiv:2003.12346, 2020.
+[49] Abhronil Sengupta, Yuting Ye, Robert Wang, Chiao Liu, and Kaushik Roy. Going deeper in
+spiking neural networks: Vgg and residual architectures. Frontiers in Neuroscience, 13:95,
+2019.
+[50] Sumit Bam Shrestha and Garrick Orchard. Slayer: Spike layer error reassignment in time. In
+Advances in Neural Information Processing Systems (NeurIPS), pages 1419–1428, 2018.
+[51] David Silver, Aja Huang, Chris J Maddison, Arthur Guez, Laurent Sifre, George Van Den Driess￾che, Julian Schrittwieser, Ioannis Antonoglou, Veda Panneershelvam, Marc Lanctot, et al. Mas￾tering the game of go with deep neural networks and tree search. Nature, 529(7587):484–489,
+2016.
+[52] Karen Simonyan and Andrew Zisserman. Very deep convolutional networks for large-scale
+image recognition. In International Conference on Learning Representations (ICLR), 2015.
+[53] Rupesh Kumar Srivastava, Klaus Greff, and Jürgen Schmidhuber. Highway networks. arXiv
+preprint arXiv:1505.00387, 2015.
+[54] Christoph Stöckl and Wolfgang Maass. Optimized spiking neurons can classify images with high
+accuracy through temporal coding with two spikes. Nature Machine Intelligence, 3(3):230–238,
+2021.
+13
+[55] Christian Szegedy, Wei Liu, Yangqing Jia, Pierre Sermanet, Scott Reed, Dragomir Anguelov,
+Dumitru Erhan, Vincent Vanhoucke, and Andrew Rabinovich. Going deeper with convolutions.
+In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition
+(CVPR), pages 1–9, 2015.
+[56] Amirhossein Tavanaei, Masoud Ghodrati, Saeed Reza Kheradpisheh, Timothée Masquelier, and
+Anthony Maida. Deep learning in spiking neural networks. Neural Networks, 111:47–63, 2019.
+[57] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez,
+Ł ukasz Kaiser, and Illia Polosukhin. Attention is all you need. In Advances in Neural
+Information Processing Systems (NeurIPS), pages 5998–6008, 2017.
+[58] Yujie Wu, Lei Deng, Guoqi Li, Jun Zhu, and Luping Shi. Spatio-temporal backpropagation for
+training high-performance spiking neural networks. Frontiers in Neuroscience, 12:331, 2018.
+[59] Saining Xie, Ross Girshick, Piotr Dollár, Zhuowen Tu, and Kaiming He. Aggregated residual
+transformations for deep neural networks. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition (CVPR), pages 5987–5995, 2017.
+[60] Fu Xing, Ye Yuan, Hong Huo, and Tao Fang. Homeostasis-based cnn-to-snn conversion
+of inception and residual architectures. In International Conference on Neural Information
+Processing, pages 173–184. Springer, 2019.
+[61] Bojian Yin, Federico Corradi, and Sander M Bohté. Effective and efficient computation
+with multiple-timescale spiking recurrent neural networks. In International Conference on
+Neuromorphic Systems, pages 1–8, 2020.
+[62] Friedemann Zenke and Tim P Vogels. The remarkable robustness of surrogate gradient learning
+for instilling complex function in spiking neural networks. Neural Computation, 33(4):899–925,
+2021.
+[63] Wenrui Zhang and Peng Li. Temporal spike sequence learning via backpropagation for deep
+spiking neural networks. In Advances in Neural Information Processing Systems (NeurIPS),
+pages 12022–12033, 2020.
+[64] Hanle Zheng, Yujie Wu, Lei Deng, Yifan Hu, and Guoqi Li. Going deeper with directly-trained
+larger spiking neural networks. In Proceedings of the AAAI Conference on Artificial Intelligence,
+volume 35, pages 11062–11070, 2021.
+[65] Shibo Zhou, Xiaohua Li, Ying Chen, Sanjeev T. Chandrasekaran, and Arindam Sanyal.
+Temporal-coded deep spiking neural network with easy training and robust performance. In
+Proceedings of the AAAI Conference on Artificial Intelligence, volume 35, pages 11143–11151,
+2021.
+[66] Romain Zimmer, Thomas Pellegrini, Srisht Fateh Singh, and Timothée Masquelier. Technical
+report: supervised training of convolutional spiking neural networks with pytorch. arXiv
+preprint arXiv:1911.10124, 2019.
+A Appendix
+A.1 Hyper-Parameters
+For all datasets, the surrogate gradient function is σ(x) = π
+1
+arctan( π
+2
+αx) + 1
+2
+, thus σ
+0 (x) =
+α
+2(1+( π
+2 αx)
+2)
+, where α is the slope parameter. We set α = 2, Vreset = 0 and Vth = 1 for all neurons.
+The optimizer is SGD with momentum 0.9. As recommended by [62], we detach S[t] in the neuronal
+reset Eq. (3) in the backward computational graph to improve performance. We use the mixed
+precision training [36], which will accelerate training and decrease memory consumption, but may
+cause slightly lower accuracy than using full precision training. The hyper-parameters of the SNNs
+for different datasets are shown in Tab. 7. Tab. 8 shows the learning rates of the SNNs with different
+element-wise functions for DVS Gesture. The data pre-processing methods for three datasets are as
+following:
+ImageNet The data augmentation methods used in [14] are also applied in our experiments. A
+224×224 crop is randomly sampled from an image or its horizontal flip with data normalization for
+train samples. A 224×224 resize and central crop with data normalization is applied for test samples.
+14
+50
+60
+70
+80
+90
+100
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Plain Net RTD
+Plain Net
+Spiking ResNet RTD
+Spiking ResNet
+SEW ADD RTD
+SEW ADD
+Plain Net RTD (test)
+Plain Net (test)
+Plain Net RTD (train)
+Plain Net (train)
+Spiking ResNet RTD (test)
+Spiking ResNet (test)
+Spiking ResNet RTD (train)
+Spiking ResNet (train)
+SEW ADD RTD (test)
+SEW ADD (test)
+SEW ADD RTD (train)
+SEW ADD (train)
+50
+60
+70
+80
+90
+100
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+50
+60
+70
+80
+90
+100
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+0 50 100 150
+epoch
+0 50 100 150
+epoch
+0 50 100 150
+epoch
+0 50 100 150
+epoch
+0 50 100 150
+epoch
+0 50 100 150
+epoch
+Figure 10: Comparison of training loss and training/test accuracy with/without random temporal
+delete (RTD).
+DVS128 Gesture We use the same AER data pre-processing method as [8], and utilize random
+temporal delete to relieve overfitting, which is illustrated in Sec. A.2.
+CIFAR10-DVS We use the same AER data pre-processing method as DVS128 Gesture. We do not
+use random temporal delete because CIFAR10-DVS is obtained by static images.
+Dataset Learning Rate Scheduler Epoch lr Batch Size T ngpu
+ImageNet Cosine Annealing [35], Tmax = 320 320 0.1 32 4 8
+DVS Gesture Step, Tstep = 64.γ = 0.1 192 0.1 16 16 1
+CIFAR10-DVS Cosine Annealing, Tmax = 64 64 0.01 16 4, 8, 16 1
+Table 7: Hyper-parameters of the SNNs for three datasets.
+A.2 Random Temporal Delete
+To reduce overfitting, we propose a simple data augmentation method called random temporal delete
+for sequential data. Denote the sequence length as T, we randomly delete T − Ttrain slices in the
+origin sequence and use Ttrain slices during training. During inference we use the whole sequence,
+that is, Ttest = T. We set Ttrain = 12, T = 16 in all experiments on DVS Gesture.
+Network Element-Wise Function g Learning Rate
+SEW ResNet ADD 0.001
+SEW ResNet AND 0.03
+SEW ResNet IAND 0.063
+Spiking ResNet - 0.1
+Plain Net - 0.005
+Table 8: Learning rates of the SNNs for DVS Gesture.
+15
+training loss accuracy(%)
+training loss accuracy(%)
+training loss accuracy(%)
+0 1 2 3 4 5 6
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+0.30
+0.35
+0.40
+Spiking ResNet
+Plain Net
+SEW ADD
+SEW AND
+SEW IAND
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2
+1.4
+0.16
+0.12
+0.08
+0.04
+0.00
+0 1 2 3 4 5 6 0 1 2 3 4 5 6
+Spiking ResNet Spiking ResNet
+Plain Net Plain Net
+SEW ADD SEW AND
+SEW IAND
+block index l block index l
+block index l
+(a) Firing rates of A
+l
+in each block on DVS Gesture Gesture
+0 1 2 3 4 5 6
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+0.30
+0.35
+0.40
+Spiking ResNet
+Plain Net
+SEW ADD
+SEW AND
+SEW IAND
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2
+1.4
+0.16
+0.12
+0.08
+0.04
+0.00
+0 1 2 3 4 5 6 0 1 2 3 4 5 6
+Spiking ResNet Spiking ResNet
+Plain Net Plain Net
+SEW ADD SEW AND
+SEW IAND
+block index l block index l
+block index l
+(b) Firing rates of the output O
+l
+in each block on DVS Gesture Gesture
+Figure 11: Firing rates of the last SN and the output Ol
+in each block of 7B-Net on DVS Gesture.
+Fig. 10 compares the training loss and training/test accuracy of Plain Net, Spiking ResNet, and SEW
+ResNet with or without random temporal delete (RTD). Here the element-wise function g is ADD. It
+can be found that the network with RTD has higher training loss and lower training accuracy than
+the network without RTD, because RTD can increase the difficulty of training. The test accuracy of
+the network with RTD is higher than that without RTD, showing that RTD will reduce overfitting.
+The results on the three networks are consistent, indicating that RTD is a general sequential data
+augmentation method.
+A.3 Firing rates on DVS Gesture
+Fig. 11(a) shows the firing rates of Al
+in each block from 7B-Net for DVS Gesture. Note that if g is
+AND, the SEW block gets closer to identity mapping when the firing rate approaches 1, while for other
+g, the SEW block becomes identity mapping when the firing rate approaches 0. When all SEW blocks
+become identity mapping, the 7B-Net will become c32k3s1-BN-PLIF-{MPk2s2}*7-FC11, which is a
+too simple network to cause underfitting. Thus, the SEW blocks in 7B-Net are not necessary to be
+identity mapping. Fig. 11(b) shows the firing rates of each block’s output Ol
+. The firing rates do not
+strictly decrease with block index increases as blocks are connected by max pooling, which squeezes
+sparse spikes and increases the firing rate. It can be found that the blocks in SEW AND network have
+the lowest firing rates. The blocks in SEW IAND network have higher firing rates than those of SEW
+AND network, and the SEW IAND network has much higher accuracy than the SEW AND network
+(95.49% v.s. 70.49%), indicating that using IAND to replace AND can relieve the silence problem
+discussed in Sec.4.1.
+16
+firing rate firing rate firing rate firing rate
+A.4 Gradients in Spiking ResNet with Firing Rates
+The gradients of SNNs are affected by firing rates, which is the reason why we analyze the firing
+rates before gradients in Sec.4.1. Consider a spiking ResNet with k sequential blocks to transmit
+S
+l
+[t], and the identity mapping condition is met, e.g., the spiking neurons are the IF neurons with
+0 < Vth ≤ 1, then we have S
+l
+[t] = S
+l+1[t] = ... = S
+l+k−1
+[t] = Ol+k−1
+[t]. We get
+∂Oj
+l
+[t]
+∂Sj
+l
+[t]
+=
+∂SN(Sj
+l
+[t])
+∂Sj
+l
+[t]
+= Θ0 (Sj
+l
+[t] − Vth) (12)
+∂L
+∂Sj
+l
+[t]
+=
+∂L
+∂Oj
+l
+[t]
+Θ
+0 (Sj
+l
+[t] − Vth). (13)
+Then the gradients between two adjacent blocks are
+∂L
+∂Ol+i
+=
+∂L
+∂Ol+i+1 Θ
+0 (S
+l+i+1 − Vth). (14)
+Denote the number of neurons as N, the firing rate of S
+l
+as Φ =
+P
+N
+j=0
+−1 P T
+t=0
+−1 Sj
+l
+[t]
+NT , then
+
+
+
+
+∂L
+∂Sl
+
+
+ 
+=
+
+  
+∂L
+∂Ol+k−1
+
+
+ 
+·
+
+
+ 
+
+k−1
+Y
+i=0
+Θ
+0 (S
+l+i − Vth)
+
+
+
+ , (15)
+where
+
+
+
+
+
+k−1
+Y
+i=0
+Θ
+0 (S
+l+i − Vth)
+
+
+
+ =
+q NTΦ(Θ0 (1 − Vth))2k + NT(1 − Φ)(Θ0 (0 − Vth))2k
+→
+
+
+
+√
+NT , Θ0 (1 − Vth) = 1, Θ0 (0 − Vth) = 1
+√
+NTΦ, Θ0 (1 − Vth) = 1, Θ0 (0 − Vth) < 1
+p
+NT(1 − Φ), Θ0 (1 − Vth) < 1, Θ0 (0 − Vth) = 1
+0, Θ0 (1 − Vth) < 1, Θ0 (0 − Vth) < 1
++∞, Θ0 (1 − Vth) > 1 or Θ0 (0 − Vth) > 1.
+A.5 0/1 Gradients Experiments
+As the analysis in Sec.3.2 shows, the vanishing/exploding gradient problems are easy to happen in
+Spiking ResNet because of accumulative multiplication. A potential solution is to set Θ0 (0 − Vth) =
+Θ0 (1−Vth) = 1. Specifically, we have trained the Spiking ResNet on ImageNet by setting Vth = 0.5
+and σ
+0 (x) = 1+ π2
+1+(πx
+4
+)
+2 in the last SN of each block to make sure that Θ0 (0 − Vth) = Θ0 (1 − Vth) = 1.
+However, this network will not converge, which may be caused by that SNNs are sensitive to surrogate
+functions.
+[64] uses the Rectangular surrogate function σ
+0 (x) = a
+1
+sign(|x| <
+a
+2
+). If we set a = 1, then σ
+0 (x) ∈
+{0, 1}. According to Eq.(8), using this surrogate function can avoid the gradient exploding/vanishing
+problems in Spiking ResNet. We compare different surrogate functions, including Rectangular
+(σ
+0 (x) = sign(|x| < 2
+1
+)), ArcTan (σ
+0 (x) = 1+(
+1
+πx)
+2 ) and Constant 1 (σ
+0 (x) ≡ 1), in the SNNs on
+CIFAR-10. Note that we aim to evaluate 0/1 gradients, rather than achieve SOTA accuracy. Hence,
+we use a lightweight network, whose structure is c32k3s1-BN-IF-{{SEW Block (c32)}*2-MPk2s2}*5-
+FC10. We use ADD as g in SEW blocks. We also compare with Spiking ResNet by replacing SEW
+blocks with basic blocks. The results are shown in Tab.9. The learning rates for each surrogate
+function are fine-tuned.
+Tab.9 indicates that the choice of surrogate function has a considerable influence on the SNN’s
+performance. Although Rectangular and Constant 1 can avoid the gradient exploding/vanishing
+problems in Eq.(8), they still cause lower accuracy or even make the optimization not converges.
+Tab.9 also shows that the SEW ResNet is more robust to the surrogate gradient as it always has higher
+accuracy than the Spiking ResNet with the same surrogate function.
+17
+Surrogate function SEW ResNet (ADD) Spiking ResNet
+ArcTan 0.8263 0.7733
+Rectangular 0.8256 0.6601
+Constant 1 0.1256 0.1
+Table 9: Test accuracy of SEW ADD ResNet and Spiking ResNet on CIFAR-10 with different
+surrogate functions.
+A.6 Reproducibility
+All experiments are implemented with SpikingJelly [7], which is an open-source deep learning
+framework for SNNs based on PyTorch [41]. Source codes are available at https://github.
+com/fangwei123456/Spike-Element-Wise-ResNet. To maximize reproducibility, we
+use identical seeds in all codes.
+18
