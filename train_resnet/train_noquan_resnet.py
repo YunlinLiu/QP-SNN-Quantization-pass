@@ -24,7 +24,7 @@ from models.quant_vgg import vgg_16_bn
 from models.quant_resnet_cifar import resnet_20
 
 
-parser = argparse.ArgumentParser("CIFAR-10 ResNet-20")   # Argument parser
+parser = argparse.ArgumentParser("CIFAR-100 ResNet-20")   # Argument parser
 
 parser.add_argument(
     '--arch',
@@ -35,25 +35,25 @@ parser.add_argument(
 parser.add_argument(
     '--job_dir',
     type=str,
-    default='./log/',
+    default='./output_resnet_quan/CIFAR100/not_quantized/',  # Output for non-quantized model
     help='path for saving trained models')
 
 parser.add_argument(
     '--batch_size',
     type=int,
-    default=32,    # ResNet typically uses smaller batch size
+    default=256,    # Match with quantized version
     help='batch size')
 
 parser.add_argument(
     '--epochs',
     type=int,
-    default=150,
+    default=300,  # Train phase: 300 epochs (same as quantized version)
     help='num of training epochs')
 
 parser.add_argument(
     '--lr',
     type=float,
-    default=1e-3,
+    default=0.1,  # Train phase: 0.1 initial learning rate (same as quantized version)
     help='init learning rate')
 
 parser.add_argument(
@@ -69,7 +69,7 @@ parser.add_argument(
 
 parser.add_argument(
     '--dataset',
-    default='CIFAR10',
+    default='CIFAR100',  # Default to CIFAR100 (same as quantized version)
     type=str,
     help='dataset name',
     choices=['CIFAR10', 'CIFAR100', 'ImageNet', 'TinyImageNet'])
@@ -77,7 +77,7 @@ parser.add_argument(
 parser.add_argument(
     '-j',
     '--workers',
-    default=0,    # Reduced number of workers to adapt to ResNet training
+    default=8,    # Same as quantized version
     type=int,
     metavar='N',
     help='number of data loading workers (default: 16)')
@@ -94,7 +94,7 @@ args = parser.parse_args()
 print_freq = 50
 common.record_config(args)
 now = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-logger = common.get_logger(os.path.join(args.job_dir, 'ResNet_CIFAR10_logger'+now+'.log'))
+logger = common.get_logger(os.path.join(args.job_dir, 'ResNet_CIFAR100_logger'+now+'.log'))
 
 if not os.path.isdir(args.job_dir): # If directory doesn't exist, recursively create all necessary parent directories
     os.makedirs(args.job_dir)
@@ -206,9 +206,9 @@ def main():
     elif args.dataset == 'TinyImageNet':
         trainset, testset = data_loaders.build_tiny_imagenet()
         CLASSES = 200
-    elif args.dataset == 'DVS128':
-        trainset, testset = data_loaders.build_dvs128(T=args.time)
-        CLASSES = 11
+    # elif args.dataset == 'DVS128':
+    #     trainset, testset = data_loaders.build_dvs128(T=args.time)
+    #     CLASSES = 11
     train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
     val_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
 
@@ -244,9 +244,12 @@ def main():
             weight_parameters.append(p)
     weight_parameters_id = list(map(id, weight_parameters))
     other_parameters = list(filter(lambda p: id(p) not in weight_parameters_id, all_parameters))
-    optimizer = torch.optim.Adam(
+    # Train phase: Use SGD optimizer (same as quantized version)
+    optimizer = torch.optim.SGD(
         [{'params': other_parameters},
-         {'params': weight_parameters, 'weight_decay': 1e-5}], lr=args.lr, )
+         {'params': weight_parameters, 'weight_decay': 1e-5}], 
+        lr=args.lr, 
+        momentum=0.9)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=args.epochs)
 
