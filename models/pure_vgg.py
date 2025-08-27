@@ -19,7 +19,7 @@ class VGG(nn.Module):
         self.compress_rate.append(0.0)
         
         self.features = self._make_layers(cfg)
-        self.avgpool = SeqToANNContainer(nn.AvgPool2d(2))
+        self.avgpool = SeqToANNContainer(nn.AdaptiveAvgPool2d((1, 1)))
         self.classifier = nn.Sequential(OrderedDict([
             ('linear1', SeqToANNContainer(nn.Linear(512, num_classes)))]))
         

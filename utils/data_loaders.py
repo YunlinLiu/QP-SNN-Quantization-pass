@@ -330,7 +330,7 @@ def build_tiny_imagenet():
     transform_test = transforms.Compose([transforms.ToTensor(),
                                          transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-    root = '/data/dataset/tiny-imagenet-200/'
+    root = '/workspace/QP-SNN-Quantization-pass/data/tiny-imagenet-200/'
     train_dataset = ImageFolder(os.path.join(root,'train'), transform_train)
     val_dataset = TinyImageNet_load(root, train=False, transform=transform_test)
     # val_dataset = ImageFolder(os.path.join(root, 'val'), transform_test)

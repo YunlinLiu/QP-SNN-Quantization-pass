@@ -3,7 +3,7 @@
 # to verify that pass-based quantization produces equivalent results to direct quantization
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import sys
 from pathlib import Path
@@ -29,11 +29,10 @@ from utils import data_loaders
 from utils import common
 from utils.functions import split_weights
 
-# Add project root to import pure_vgg model (from test_ann2snn_module_vgg.py logic)
-project_root = Path(__file__).resolve().parents[0]
-sys.path.append(str(project_root))  # For models.layers import in pure_vgg
-sys.path.append(str(project_root / "models"))  # For pure_vgg import
-from pure_vgg import vgg_16_bn
+# Add repo root to import pure_vgg model (from test_ann2snn_module_vgg.py logic)
+repo_root = Path(__file__).resolve().parents[1]
+sys.path.append(str(repo_root))  # Ensure 'models' package is importable
+from models.pure_vgg import vgg_16_bn
 
 # Argument parser (from quant.py logic)
 parser = argparse.ArgumentParser("TinyImageNet VGG-16 ReScaW Quantization")   # Argument parser
@@ -76,7 +75,7 @@ parser.add_argument(
 parser.add_argument(
     '--gpu',
     type=str,
-    default='0',
+    default='1',
     help='Select gpu to use')
 
 parser.add_argument(
