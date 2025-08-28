@@ -12,9 +12,11 @@ from .roberta import (
 from .llama import LlamaAttentionLSQInteger
 
 from .vgg import Conv2dReScaW
+from .vgg.conv2d import Conv2dAPoT, Conv2dQSNN
 
 from .spikingformer import (
     Conv1dReScaW,
+    Conv1dQSNN,
     Conv2dReScaW as SpikingformerConv2dReScaW,
     Conv1dVanilla,
     Conv2dVanilla,
@@ -55,6 +57,7 @@ from .convtranspose2d import (
     ConvTranspose2dMinifloatIEEE,
 )
 from .linear import (
+    LinearAPoT,
     LinearBlockFP,
     LinearBlockMinifloat,
     LinearInteger,
@@ -199,7 +202,10 @@ quantized_basic_module_map = {
     "conv2d_block_fp": Conv2dBlockFP,
     "conv2d_lutnet": Conv2dLUT,
     "conv2d_logicnets": Conv2DLogicNets,
+    "conv2d_apot": Conv2dAPoT,
+    "conv2d_qsnn": Conv2dQSNN,
     "conv1d_rescaw": Conv1dReScaW,
+    "conv1d_qsnn": Conv1dQSNN,
     "conv2d_rescaw": SpikingformerConv2dReScaW,
     "conv1d_vanilla": Conv1dVanilla,
     "conv2d_vanilla": Conv2dVanilla,
@@ -217,6 +223,7 @@ quantized_basic_module_map = {
     "linear_minifloat_ieee": LinearMinifloatIEEE,
     "linear_minifloat_denorm": LinearMinifloatDenorm,
     "linear_block_fp": LinearBlockFP,
+    "linear_apot": LinearAPoT,
     "linear_binary": LinearBinary,
     "linear_binary_residual": LinearBinaryResidualSign,
     "linear_ternary": LinearTernary,

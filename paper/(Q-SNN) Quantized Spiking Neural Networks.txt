@@ -1,0 +1,1507 @@
+Q-SNNs: Quantized Spiking Neural Networks
+Wenjie Wei
+University of Electronic Science and
+Technology of China
+Chengdu, China
+Yu Liang
+University of Electronic Science and
+Technology of China
+Chengdu, China
+Ammar Belatreche
+Northumbria University
+Newcastle
+United Kingdom
+Yichen Xiao
+University of Electronic Science and
+Technology of China
+Chengdu, China
+Honglin Cao
+University of Electronic Science and
+Technology of China
+Chengdu, China
+Zhenbang Ren
+University of Electronic Science and
+Technology of China
+Chengdu, China
+Guoqing Wang
+University of Electronic Science and
+Technology of China
+Chengdu, China
+Malu Zhang ∗
+University of Electronic Science and
+Technology of China
+Chengdu, China
+Yang Yang
+University of Electronic Science and
+Technology of China
+Chengdu, China
+Abstract
+Brain-inspired Spiking Neural Networks (SNNs) leverage sparse
+spikes to represent information and process them in an asynchro nous event-driven manner, offering an energy-efficient paradigm
+for the next generation of machine intelligence. However, the cur rent focus within the SNN community prioritizes accuracy opti mization through the development of large-scale models, limiting
+their viability in resource-constrained and low-power edge devices.
+To address this challenge, we introduce a lightweight and hardware friendly Quantized SNN (Q-SNN) that applies quantization to both
+synaptic weights and membrane potentials. By significantly com pressing these two key elements, the proposed Q-SNNs substan tially reduce both memory usage and computational complexity.
+Moreover, to prevent the performance degradation caused by this
+compression, we present a new Weight-Spike Dual Regulation (WS DR) method inspired by information entropy theory. Experimental
+evaluations on various datasets, including static and neuromor phic, demonstrate that our Q-SNNs outperform existing methods
+in terms of both model size and accuracy. These state-of-the-art
+results in efficiency and efficacy suggest that the proposed method
+can significantly improve edge intelligent computing.
+CCS Concepts
+• Computing methodologies → Computer vision tasks.
+Keywords
+Spiking Neural Networks, Neuromorphic Datasets, Quantization
+∗Corresponding author.
+Permission to make digital or hard copies of all or part of this work for personal or
+classroom use is granted without fee provided that copies are not made or distributed
+for profit or commercial advantage and that copies bear this notice and the full citation
+on the first page. Copyrights for components of this work owned by others than the
+author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or
+republish, to post on servers or to redistribute to lists, requires prior specific permission
+and/or a fee. Request permissions from permissions@acm.org.
+MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia.
+© 2024 Copyright held by the owner/author(s). Publication rights licensed to ACM.
+ACM ISBN 979-8-4007-0686-8/24/10
+https://doi.org/10.1145/3664647.3681186
+ACM Reference Format:
+Wenjie Wei , Yu Liang , Ammar Belatreche , Yichen Xiao , Honglin
+Cao , Zhenbang Ren , Guoqing Wang , Malu Zhang , and Yang Yang .
+2024. Q-SNNs: Quantized Spiking Neural Networks. In Proceedings of the
+32nd ACM International Conference on Multimedia (MM ’24), October 28–
+November 1, 2024, Melbourne, VIC, Australia. ACM, New York, NY, USA,
+10 pages. https://doi.org/10.1145/3664647.3681186
+1 Introduction
+Brain-inspired spiking neural networks (SNNs) have emerged as a
+promising approach for the next generation of machine intelligence.
+In contrast to traditional deep neural networks (DNNs), the spik ing neuron in SNNs transmits information through binary spikes,
+which converts intensive multiply-accumulate (MAC) operations
+into efficient accumulate (AC) operations [12, 61]. This energy efficient characteristic of SNNs has triggered a growing interest
+in the design of neuromorphic hardware, including TrueNorth [1],
+Loihi [7], and Tianjic [31], etc. These neuromorphic hardware draw
+upon the storage and computing paradigms of the human brain,
+enabling the energy efficiency advantages of SNNs to be further
+demonstrated. However, despite the energy efficiency of SNNs, their
+performance in practical applications requires improvement.
+In recent years, numerous studies have focused on developing
+expansive and complex network architectures for SNNs, leading
+to notable performance improvements across various tasks such
+as image classification [13, 14, 41, 57], language generation [3, 64],
+speech processing [30, 49–51] and object recognition [20, 44, 54].
+Despite their commendable performance, these studies come at the
+cost of massive model parameters and high computational com plexity. Consequently, these large-scale SNNs sacrifice the inherent
+energy efficiency advantages that are closely associated with SNNs,
+thereby presenting challenges for their deployment on real-world
+resource-constrained edge devices.
+There is a growing body of research investigating compression
+techniques for large-scale SNNs. These techniques include prun ing [9, 27, 58], knowledge distillation [45, 55, 56], neural architec ture search [28, 33], and quantization [9, 18, 59]. Quantization tech niques have attracted considerable interest due to their ability to
+arXiv:2406.13672v2 [cs.CV] 9 Feb 2025
+MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia. Wenjie Wei et al.
+convert synaptic weights from a high-precision floating-point rep resentation to a low bit-width integer representation [35, 37]. This
+conversion facilitates efficient deployment on resource-constrained
+devices by enabling the use of lower-precision arithmetic units that
+are both cheaper and more energy-efficient. Binarization within
+this domain stands out for its hardware-friendly feature, which
+restricts data to two possible values (-1 and +1), leading to sig nificant efficiency in terms of storage and computation [16, 36].
+However, existing binarization approaches in SNNs focus solely on
+quantizing synaptic weights, overlooking the memory-intensive
+aspect associated with membrane potentials [32, 34, 46]. There fore, there remains room for further efficiency optimizations. While
+prior lightweight research has explored the quantization of mem brane potentials [59], the synaptic weights in this work remain
+non-binary, leaving room for efficiency improvements.
+This paper introduces a lightweight spiking neural network
+(SNN) architecture called Quantized SNN (Q-SNN) which prior itizes energy efficiency while maintaining high performance. We
+achieve this by quantizing two key elements within the network,
+namely synaptic weights and membrane potentials. This targeted
+quantization aims to maximize the energy efficiency of the pro posed architecture. In addition, to further enhance performance
+within Q-SNNs, we leverage the principles of information entropy
+by introducing a novel Weight-Spike Dual Regulation (WS-DR)
+method. This method aims to maximize the information content
+within Q-SNNs, ultimately leading to improved accuracy. The main
+contributions of this work are summarized as follows:
+• We introduce a novel SNN architecture, called Q-SNN, de signed for efficient hardware implementation and low en ergy consumption. Q-SNN achieves this goal by employing
+the quantization technique on two key elements of the net work: (1) synaptic weights using binary representation and
+(2) membrane potentials using low bit-width representation.
+This targeted quantization significantly improves the effi ciency of the network.
+• We analyze how to enhance the performance of Q-SNNs
+from the theory of information entropy and propose a novel
+Weight-Spike Dual Regulation (WS-DR) method. Inspired
+by information entropy theory, WS-DR adjusts the distri bution of both weights and spikes in Q-SNNs. This method
+maximizes the information content in Q-SNNs and results
+in improved accuracy.
+• We conduct comprehensive experiments on various bench mark datasets, including static and neuromorphic, to validate
+the efficiency and effectiveness of our method. Experimental
+results demonstrate that our method achieves state-of-the art results in terms of both efficiency and performance, un derscoring its capability to boost the development of edge
+intelligent computing.
+2 Related work
+Several compression techniques have been explored to address the
+challenges associated with large-scale Spiking Neural Networks
+(SNNs). These techniques include pruning, knowledge distillation,
+and neural architecture search. Pruning involves removing redun dant parameters by eliminating unnecessary nodes or branches
+within the network [5, 9, 25]. Knowledge distillation is a technique
+that enables the transfer of knowledge from a larger pre-trained
+model to a smaller model [11, 13, 22, 55]. Neural Architecture Search
+(NAS) is an automated approach to designing high-performance
+neural network structures under resource constraints [4, 28].
+Quantization is another powerful technique for compressing
+SNN models. Unlike traditional ANNs which use real-valued acti vations, SNNs communicate through binary spikes. Consequently,
+the main energy consumption in SNNs is attributed to the use
+of floating-point synaptic weights. To address this issue, existing
+quantized SNNs mainly focus on reducing the bit-width of weights,
+typically down to 2, 4, or 8 bits [6, 9, 43]. However, further reduction
+to a single bit, i.e. binary weights, often leads to significant perfor mance degradation or even failure of training convergence. This
+challenge has motivated research on specifically designed binary
+SNNs [18, 19, 34, 46]. While these binary SNN approaches offer
+significant efficiency advantages, they still have limitations. Firstly,
+these methods focus solely on quantizing synaptic weights, neglect ing the memory footprint associated with membrane potentials.
+This presents an opportunity for further efficiency improvements.
+Secondly, binary SNNs often suffer from severe information loss
+during inference, resulting in a substantial performance gap com pared to their full-precision SNN counterparts.
+To overcome these limitations, we introduce the Quantized SNN
+(Q-SNN) that quantizes both weights and membrane potentials to
+maximize efficiency. Furthermore, to mitigate the performance gap
+between Q-SNN and full-precision SNNs, we leverage the principle
+of information entropy and propose a novel Weight-Spike Dual
+Regulation (WS-DR) method. By integrating WS-DR, we can train
+efficient and high-performance Q-SNNs from scratch, paving the
+way for deploying SNNs on resource-constrained devices.
+3 Preliminary
+3.1 Leaky Integrate-and-Fire model
+SNNs rely on spiking neurons as their fundamental processing
+units. These models aim to replicate the information processing
+capabilities of biological neurons [47, 62]. Several prominent exam ples include the Hodgkin-Huxley [15], Izhikevich [17], and Leaky
+Integrate-and-Fire (LIF) models [52]. Due to its computational ef ficiency, we adopt the LIF model. Its membrane potential, a key
+element of a neuron’s firing behavior, is mathematically described
+as,
+𝑢𝑖
+𝑙
+[𝑡] = 𝜏𝑢𝑖
+𝑙
+[𝑡 − 1] + ∑︁
+𝑗
+𝑤𝑖𝑗
+𝑙
+𝑠
+𝑙
+𝑗
+−1
+[𝑡], (1)
+where 𝜏 is the constant leaky factor, 𝑤𝑖𝑗
+𝑙
+is the synaptic weight
+between neuron 𝑗 in layer 𝑙 − 1 and neuron 𝑖 in layer 𝑙, and 𝑠
+𝑙
+𝑗
+−1
+[𝑡]
+is the input spike from presynaptic neuron 𝑗 at time 𝑡. Neuron 𝑖
+integrates inputs and emits a spike when its membrane potential
+exceeds the firing threshold. Mathematically, the spike generation
+function is stated as,
+𝑠
+𝑖
+𝑙
+[𝑡] =
+
+1
+0,
+, if
+otherwise
+𝑢𝑖
+𝑙
+[𝑡] ≥ 𝜃,
+,
+(2)
+where 𝜃 denotes the firing threshold parameter. Following each
+spike emission, the spiking neuron 𝑖 undergoes a reset mechanism
+Q-SNNs: Quantized Spiking Neural Networks MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia. ⋯
+Presynaptic Spike
+Classification Loss:
+ ?
+?
+=1 ℒ?? o[t], y 
+Spike Regulation
+Loss: ℒ?
+Loss Function Synaptic Weight
+-1 .6
+1
+.8
+-1
+1 -1
+-1 2.1 0.3
+-1
+1
+-1 1
+-1 0.2
+- 0.6
+- 1.8
+1
+- 1
+0.3
+-1 -1
+1 1
+-1
+-1
+1
+1 -1
+LIF Spiking Neuron
+⋮
+0.2 0.6
+1.2
+1.8
+0.4
+0.3 -0.1
+1.3 2.1 0.3
+-0.7
+0.2
+0.3 0.7
+0.4 0.2
+-0.6
+-1.8
+1.1
+-0.3 1.4
+-1 0.6
+1
+1.8
+-1
+1 -1
+-1 2.1 0.3
+-1
+1
+-1 0.4
+0.1
+0.5
+0.4
+0.2
+-0.6
+-1.8
+-0.3
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮ ⋯
+⋯
+⋯ ⊕
+Before Learning
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+After Learning
+⋮ ⋮ ⋮ ⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+⋮ ⋮ ⋮ ⋯
+⋯
+⋯
+⋮
+0.6
+-0.5
+-0.2 -0.1
+0.5
+0.6
+-0.2 0.1
+0.4
+1.3
+-1.8
+-0.6 -0.3
+0.9
+1.4
+-0.2 0.5
+0.7
+?2
+?
+??
+?
+?1
+? ??
+??
+??
+Spike Newly Spike ??
+? LIF Spiking Neuron ⊕Convolution Operation ?? Quantization of ??
+?
+Figure 1: The overall workflow of the proposed Q-SNN.
+that updates its membrane potential. This reset process is mathe matically defined as,
+𝑢𝑖
+𝑙
+[𝑡] ← 𝑢𝑖
+𝑙
+[𝑡] ·  1 − 𝑠
+𝑖
+𝑙
+[𝑡]
+ . (3)
+This work uses the hard reset mechanism where the membrane
+potential of neuron 𝑖 is reset to zero upon emitting a spike and
+remains unchanged in the absence of a spike.
+3.2 Surrogate gradient learning method
+Training of SNNs requires calculating the gradient of the loss func tion with respect to the synaptic weight. The chain rule provides
+a powerful tool to achieve this. By applying the chain rule, the
+derivative of the loss function 𝐿 with respect to the synaptic weight
+𝑤
+𝑙
+𝑖𝑗 can be decomposed into the following equation,
+𝜕𝐿
+𝜕𝑤𝑙
+𝑖𝑗
+=
+𝑇
+∑︁
+𝑡=1
+ 
+𝜕𝑠
+𝜕𝐿
+𝑖
+𝑙
+[𝑡] 𝜕𝑢
+𝜕𝑠𝑖
+𝑙
+𝑖
+𝑙
+[
+[
+𝑡
+𝑡
+]
+]
+𝜕𝑢
+𝜕𝑤
+𝑖
+𝑙
+[
+𝑖𝑗
+𝑙
+𝑡]
++
+𝜕𝑢𝑖
+𝑙
+𝜕𝐿
+[𝑡 +1]
+𝜕𝑢
+𝜕𝑢
+𝑖
+𝑙
+𝑖
+𝑙
+[𝑡
+[
++
+𝑡]
+1] 𝜕𝑢
+𝜕𝑤
+𝑖
+𝑙
+[
+𝑖𝑗
+𝑙
+𝑡]
+!
+. (4)
+However, training SNNs presents a distinct challenge compared to
+traditional ANNs and Deep Neural Networks (DNNs) due to the non differentiable nature of the spiking (i.e. firing) mechanism. Specif ically, the term 𝜕𝑠𝑖
+𝑙
+[𝑡]/𝜕𝑢𝑖
+𝑙
+[𝑡] represents the gradient of the spike
+generation function (described in Eq. 2). This function evaluates
+to infinity at the moment of spike emission and to zero elsewhere,
+making it incompatible with the traditional error backpropagation
+used in ANN/DNN training. To tackle this issue, existing studies
+employ surrogate gradients to approximate the true gradient [52].
+These surrogate gradients take various shapes, including rectan gular [53], triangular [10], and linear [48]. In this paper, we use
+the triangular-shaped surrogate gradient which is mathematically
+defined as,
+𝜕𝑠𝑙
+𝑖
+[𝑡]
+𝜕𝑢𝑙
+𝑖
+[𝑡]
+= 𝑚𝑎𝑥  0, 𝛽 −
+
+  𝑢
+𝑙
+𝑖
+[𝑡] − 𝜃
+
+
+
+ , (5)
+where 𝛽 is the factor that defines the range of gradient computation.
+4 Method
+This section introduces the core aspects of our work. First, we
+present the design of the proposed lightweight Q-SNN architecture,
+focusing on the key element of quantizing both synaptic weights
+and membrane potentials for improving efficiency. Then, we explore
+methods for enhancing its performance through an information
+theory-based analysis. Leveraging the principles of information
+entropy, we present a novel Weight-Spike Dual Regulation (WS DR) method to maximize the information content within Q-SNNs,
+ultimately leading to improved accuracy.
+4.1 Quantized spiking neural networks
+In order to exploit the energy efficiency benefit inherent to SNNs,
+we introduce a Quantized SNN (Q-SNN). As shown in Figure 1,
+the first characteristic of the proposed Q-SNNs is to quantize the
+synaptic weight. The synaptic weights in SNNs are commonly
+represented as 32-bit values, which often encounter challenges such
+as large storage demands, increased computational complexity, and
+high power consumption. Therefore, in Q-SNNs, we quantize the
+synaptic weight into a 1-bit representation, which is formulated as,
+𝑄𝑤 (𝑤) = 𝛼𝑤 · sign(𝑤), (6)
+sign(𝑤) =
+
++
+−
+1
+1
+,
+,
+if
+otherwise
+𝑤 ≥ 0,
+,
+(7)
+where 𝑤 indicates the 32-bit weight, sign(𝑤) represents the bina rization operation of obtaining the 1-bit weight, and 𝛼𝑤 denotes
+the scaling factor for synaptic weights. The binarization operation
+sign(𝑤) typically suffers from severe information loss, resulting
+in performance degradation of Q-SNNs. To overcome this issue, a
+channel-wise scaling factor 𝛼𝑤 is introduced to mitigate the im pact of information loss, and it is calculated as the average of the
+absolute value of weights in each output channel [38].
+The second characteristic of the proposed Q-SNNs is to quantize
+the memory-intensive membrane potentials in SNNs. As synaptic
+weights are reduced to a specific bit width, the membrane potential
+Q
+-
+S
+N
+N
+W
+S
+-
+D
+R
+We
+i
+g
+h
+t
+R
+e
+g
+u
+l
+a
+t
+i
+o
+n
+S
+i
+g
+n
+F
+u
+n
+c
+t
+i
+o
+n
+MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia. Wenjie Wei et al.
+0 1
+0.00
+2.00
+4.00 1e6
+ps:0.20
+Layer1 0 1
+0.00
+2.22
+4.44 1e6
+ps:0.11
+Layer2 0 1
+0.00
+1.95
+3.90 1e6
+ps:0.22
+Layer3 0 1
+0.00
+2.17
+4.33 1e6
+ps:0.13
+Layer4
+0.00
+0 1
+1.87
+3.75 1e6
+ps:0.25
+Layer5
+0.00
+0 1
+2.12
+4.24 1e6
+ps:0.15
+Layer6
+0.00
+0 1
+1.83
+3.66 1e6
+ps:0.27
+Layer7
+0.00
+0 1
+1.05
+2.09 1e6
+ps:0.16
+Layer8
+Figure 2: The distribution of spikes 𝑠 in Q-SNNs, we select
+the first eight layers in ResNet-19 on CIFAR-10 for display.
+begins to emerge as the predominant factor in memory storage and
+computational overhead [59]. Therefore, the membrane potential
+plays a critical role in improving efficiency, but it is neglected in
+existing binary SNNs. Building upon this, we quantize the mem brane potential within Q-SNNs to a low bit-width integer, with the
+quantization function described as,
+𝑄𝑢 (𝑢) =
+𝛼𝑢
+2
+𝑘−1 − 1
+round   2
+𝑘−1 − 1
+ clip 
+𝛼
+𝑢
+𝑢
+, −1, 1
+  , (8)
+clip(𝑥, −1, 1) = 𝑚𝑖𝑛 (𝑚𝑎𝑥 (𝑥, −1) , 1) , (9)
+where 𝑢 is the 32-bit membrane potential, 𝑘 denotes the number of
+bits assigned to the quantized integer, 𝛼𝑢 is the scaling factor for
+membrane potentials, round(·) is a rounding operator, and clip(·)
+is a clipping operator saturating 𝑥 within the range [−1, 1]. In
+this paper, 𝑘 is set to 2/4/8, and a layer-wise scaling factor 𝛼𝑢 is
+determined as the maximum value in each layer.
+By integrating Eq. 6 and Eq. 8 into Eq. 1, the membrane potential
+of the LIF neuron model can be represented as,
+𝑢𝑖
+𝑙
+[𝑡] = 𝜏 · 𝑄𝑢
+ 𝑢𝑖
+𝑙
+[𝑡 − 1]
+ +
+∑︁
+𝑗
+𝛼𝑤
+ sign  𝑤𝑖𝑗
+𝑙
+ ⊕ 𝑠
+𝑙
+𝑗
+−1
+[𝑡]
+ . (10)
+In this equation, it can be observed that the membrane potential
+𝑢
+𝑙
+𝑖
+[𝑡 − 1] is quantized to a low bit-width, thereby requiring dimin ished storage demands. Furthermore, through the integration of
+binary spikes and binary weights, the proposed Q-SNNs can lever age cost-effective bitwise operations, i.e., ⊕, to execute the convo lutional operation, thereby attaining enhanced computational effi ciency in the inference process. In summary, the proposed Q-SNN
+architecture maximizes the efficiency benefit inherent to SNNs.
+4.2 Analysis of information content in Q-SNNs
+While the proposed Q-SNNs exhibit significant energy efficiency,
+it must be acknowledged that their task performance lags signifi cantly behind that of full-precision SNNs. This performance gap can
+be attributed to the limited information representation capability
+of Q-SNNs due to the low-precision weights and spiking activities.
+To address this challenge, we explore into the concept of informa tion entropy and analyze how it can be leveraged to enhance the
+performance of Q-SNNs.
+In Q-SNNs, the synaptic weight and spike activity are binary
+values, i.e., 𝑤 ∈ {−1, 1} and 𝑠 ∈ {0, 1}, both of them follow the
+Bernoulli distribution. Taking the binary spike 𝑠 as an example for
+analysis, its probability mass function can be expressed as,
+𝑓 (𝑠) =
+(
+𝑝
+1
+𝑠
+−
+,
+𝑝𝑠, if
+if 𝑠
+𝑠
+=
+=
+1
+0
+,
+,
+(11)
+where 𝑝𝑠 ∈ (0, 1) is the probability of 𝑠 being value 1. We measure
+the information content carried by 𝑠 using the theory of information
+entropy, expressed as,
+H (𝑠) = − [𝑝𝑠 ln(𝑝𝑠) + (1 − 𝑝𝑠) ln(1 − 𝑝𝑠)] . (12)
+From this equation, it can be observed that when 𝑝𝑠 approaches
+either 0 or 1, the entropy function H (𝑠) may tend towards its
+minimum value 0. To evaluate the information content carried
+by 𝑠 in Q-SNNs, we conduct experiments with ResNet-19 on the
+CIFAR-10 dataset to obtain 𝑝𝑠 in each layer, as illustrated in Figure 2.
+Unfortunately, 𝑝𝑠 in each layer tends towards 0, resulting in severely
+limited information content carried by 𝑠. Even worse, the weight
+in Q-SNNs also faces the same challenge.
+To enhance the performance of Q-SNN, increasing the informa tion content of its binary weights and spike activities is necessary.
+Therefore, we analyze what condition 𝑝𝑠 satisfies so that the infor mation entropy of binary values is maximized. Maximizing entropy
+in this context helps ensure that the quantized weight and mem brane potential values are spread out as evenly as possible within
+their range. This uniform distribution helps to ensure that the quan tized network’s representational capacity is not overly constrained
+by the quantization process. It allows the quantized network to
+preserve as much information as possible despite the reduced preci sion of synaptic weights and membrane potentials in the network.
+To achieve this, we need to solve the following equation,
+𝑝
+∗ = arg max
+𝑝𝑠
+H (𝑠). (13)
+By solving Eq. 13, we can determine 𝑝
+∗ = 0.5. Therefore, we design
+a method to regulate the distributions of binary weights and spikes
+respectively, enabling their probability to be close to 0.5.
+4.3 Weight-Spike dual regulation method
+To mitigate the performance degradation caused by information
+loss in the quantization process, we propose a Weight-Spike Dual
+Regulation method (WS-DR) to increase the information content of
+weights and spike activities in Q-SNNs. As analyzed in Sec. 4.2, the
+variable obeying the Bernoulli distribution carries the maximum
+information content when 𝑝 = 0.5. Therefore, in the following,
+we illustrate how to adjust the binary weight and spike activity to
+satisfy this condition as much as possible.
+We first analyze the regulation for synaptic weights in Q-SNNs.
+The objective for the binary weight, denoted as 𝐵𝑤, to satisfy 𝑝𝑤 =
+0.5 implies that it has an equal probability of taking either 1 or -1.
+We experimentally observed that the float-point weight in layer 𝑙
+before adopting binarization operation generally obeys a Gaussian
+distribution N (𝜇𝑙
+, 𝜎𝑙
+2
+). However, the mean value 𝜇𝑙 and standard
+deviation 𝜎𝑙 vary across layers. Inspired by this observation, we
+implement a normalization technique on float-point weights in Dis
+t
+rib
+u
+tio
+n
+o
+f
+s in
+Q-S
+N
+N
+s
+Q-SNNs: Quantized Spiking Neural Networks MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia.
+each layer, as detailed below,
+𝑊
+ˆ𝑙 =
+𝑊𝑙 − 𝜇𝑙
+𝜎𝑙
+, (14)
+where 𝑊𝑙 denotes the tensor of float-point weights in layer 𝑙. This
+equation enables𝑊
+ˆ𝑙
+to obey a standard normal distribution N (0, 1),
+with zero serving as the symmetry axis. By subsequently employing
+the sign function on 𝑊
+ˆ𝑙
+, we can ensure 𝑝𝑤 = 0.5.
+We then analyze the regulation for spike activities in Q-SNNs.
+Similar to the binary weight 𝐵𝑤 in Q-SNNs, achieving the maximal
+information entropy of spike activities implies that each neuron in
+Q-SNNs emits a spike with a probability of 1/2 at all possible spike
+activity locations, i.e., the firing rate is 50%. This will seriously im pair the sparsity characteristic of SNNs and sacrifice their inherent
+energy efficiency advantage. Therefore, in Q-SNNs, we design a
+loss function to impose a soft regulation on 𝑠. The goal of this loss
+function is to increase the information entropy of 𝑠 per layer as
+much as possible, rather than rigidly enforcing its probability to be
+0.5. The proposed loss term L𝑠 is defined as,
+L𝑠 =
+𝐿−1 ∑︁
+𝑙=2
+(𝑓𝑙 − 0.5)
+2
+, 𝑓𝑙 =
+𝑁𝑙
+1
+×𝑇
+ 
+𝑁𝑙 ∑︁
+𝑖=1
+𝑇
+∑︁
+𝑡=1
+𝑠
+𝑙
+𝑖
+[𝑡]
+! , (15)
+where 𝐿 is the total number of layers in the network, 𝑓𝑙 denotes the
+firing rate of spiking neurons in layer𝑙, 𝑁𝑙
+is the number of neurons
+in layer 𝑙, and 𝑇 indicates the simulation time step. The proposed
+loss term L𝑠 only regulates the spike distributions in hidden layers,
+disregarding the input and output layers as they are correlated with
+input data and classification outcomes. Consequently, the overall
+loss function is defined as,
+L =
+1
+𝑇
+𝑇
+∑︁
+𝑡=1
+L𝑐𝑒 (o(𝑡), y) + 𝜆L𝑠, (16)
+where o[𝑡] is the output of Q-SNNs at time 𝑡 and 𝑦 is the target
+label. L𝑐𝑒 is the cross-entropy loss for classification, L𝑠 is the soft
+regulation term designed to increase the information content of 𝑠,
+and 𝜆 is a hyperparameter that controls the contribution of L𝑠. By
+integrating the normalization technique on 𝑤 and the soft regula tion loss term on 𝑠, the weight and spike in Q-SNNs can carry more
+information content, thus mitigating the performance degradation
+caused by information loss during the quantization process. Finally,
+we summarize the training procedure of our method in Algorithm 1.
+5 Experiments
+In this section, we first outline the experimental setup and imple mentation details of the proposed Q-SNN with the WS-DR method.
+We then conduct a comprehensive evaluation, comparing the per formance and model size of our approach against existing quantized
+SNN techniques. Finally, we employ ablation studies to validate the
+efficiency and effectiveness of our method.
+5.1 Experimental setup
+Datasets. We evaluate our method on image classification tasks,
+encompassing both static image datasets like CIFAR-10 [21], CIFAR-
+100 [21], and TinyImageNet [8], alongside neuromorphic datasets
+Algorithm 1 Train a Q-SNN with the Weight-Spike Dual Regula tion (WS-DR) method for one epoch.
+Input: A Q-SNN model: W = {𝑊 1
+, · · · ,𝑊 𝐿
+}; The number of
+training iteration in one epoch: 𝐼𝑡𝑟𝑎𝑖𝑛; Training dataset.
+Output: The Q-SNN model with updated weights.
+1: for 𝑖 = 1 → 𝐼𝑡𝑟𝑎𝑖𝑛 do
+2: Get a minibatch of training data and target labels (I,Y);
+3: Initialize an empty list 𝐹 ;
+4: for 𝑙 = 1 → 𝐿 do
+5: Regulate the distribution of 32-bit weights: ˆ 𝑊𝑙 =
+𝑊 𝑙 −𝜇𝑙
+𝜎𝑙
+;
+6: Compute 1-bit weights and channel-wise scaling factors:
+𝐵𝑤 = sign(
+ˆ 𝑊𝑙
+) , 𝛼𝑤 =
+| | ˆ 𝑊 𝑙
+| |1
+𝑛
+;
+7: for 𝑡 = 1 → 𝑇 do
+8: Compute the membrane potential (𝑈
+𝑙
+[0] =0, 𝑆0
+[𝑡] =I):
+𝑈
+𝑙
+[𝑡] = 𝜏𝑈𝑙
+[𝑡 − 1] + 𝛼𝑤
+ 𝐵𝑤 ⊕ 𝑆
+𝑙−1
+[𝑡]
+ ;
+9: Compute a layer-wise scaling factor: 𝛼𝑢 = max  𝑈
+𝑙
+[𝑡]
+ ;
+10: Quantize the membrane potential to 𝑘 bits:
+𝑈
+𝑙
+[𝑡] ← 𝛼𝑢
+2
+𝑘−1−1
+round   2
+𝑘−1 − 1
+ clip  𝑈
+𝑙
+[𝑡]
+𝛼𝑢
+, −1, 1
+  ;
+11: Generate binary spikes via Heaviside step function:
+𝑆
+𝑙
+[𝑡] = Heaviside  𝑈
+𝑙
+[𝑡] − 𝜃
+ ;
+12: end for
+13: 𝑆
+𝑙 = concat  𝑆
+𝑙
+[1], · · · , 𝑆𝑙
+[𝑇 ]
+ ;
+14: Compute the firing rate: 𝑓𝑙 =
+1
+𝑁𝑙 ×𝑇
+
+Í
+𝑁𝑙
+𝑖=1
+Í
+𝑇
+𝑡=1
+𝑆
+𝑖
+𝑙
+[𝑡]
+ ;
+15: 𝐹 ← 𝐹 .𝑎𝑝𝑝𝑒𝑛𝑑 (𝑓𝑙
+);
+16: end for
+17: Regulate the distribution of spikes: L𝑠 =
+Í 𝑙
+𝐿
+=
+−
+2
+1
+(𝐹 [𝑙] − 0.5)
+2
+;
+18: Compute the loss: L = 𝑇
+1 Í 𝑇
+𝑡=1 L𝑐𝑒 + 𝜆L𝑠;
+19: Backpropagation and update model parameters;
+20: end for
+such as DVS-Gesture [2] and DVS-CIFAR10 [23]. These datasets
+hold substantial importance within the realms of machine learning
+and neuromorphic computing, serving as standard benchmarks for
+evaluating diverse methodologies. Before introducing the experi ments, we briefly outline each dataset. The CIFAR-10 and CIFAR-
+100 are color image datasets, with each dataset containing 50,000
+training images and 10,000 testing images. Each image features 3
+color channels and a spatial resolution of 32×32 pixels. CIFAR-10
+is composed of 10 categories, whereas CIFAR-100 comprises 100
+categories. The TinyImageNet dataset is a subset of the ImageNet
+dataset, consisting of 200 categories, with each category containing
+500 training images and 50 test images. Each image has 3 color
+channels and a spatial resolution of 64×64 pixels. The DVS-Gesture
+and DVS-CIFAR10 are neuromorphic datasets captured using Dy namic Vision Sensor (DVS) event cameras, both featuring a spatial
+resolution of 128×128. The DVS-Gesture dataset consists of 1464
+samples, with 1176 allocated for training and 288 for testing. The
+DVS-CIFAR10 is the most challenging neuromorphic dataset, fea turing 9,000 training samples and 1,000 testing samples. During the
+preprocessing process of the DVS-CIFAR10 dataset, we apply the
+data augmentation technique proposed in [26].
+MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia. Wenjie Wei et al.
+Table 1: Classification performance comparison on both static image datasets and neuromorphic datasets.
+Dataset Method Architecture Learning Bit Width Timestep Accuracy
+CIFAR-10
+Full-Precision SNN‡ ResNet19 Direct train 32w-32u1
+2 96.36%
+Roy et al. [39] VGG9 ANN2SNN 1w-32u - 88.27%
+Rueckauer et al. [40] 6Conv3FC ANN2SNN 1w-32u - 88.25%
+Wang et al. [46] 6Conv3FC ANN2SNN 1w-32u 100 90.19%
+Yoo et al. [60] VGG16 ANN2SNN 1w-32u 32 91.51%
+Deng et al. [9] 7Conv3FC Direct train 1w-32u 8 89.01%
+Pei et al. [32] 5Conv1FC Direct train 1w-32u 1 92.12%
+Zhou et al. [63] VGG16 Direct train 2w-32u - 90.93%
+Yin et al. [59] ResNet19 Direct train 2w-2u 4 90.79%
+Proposed Q-SNN ResNet19 Direct train
+1w-8u 2 95.54%
+1w-4u 2 95.31%
+1w-2u 2 95.20%
+CIFAR-100
+Full-Precision SNN‡ ResNet19 Direct train 32w-32u 2 79.52%
+Roy et al. [39] VGG16 ANN2SNN 1w-32u - 54.44%
+Lu et al. [29] VGG15 ANN2SNN 1w-32u 400 62.07%
+Wang et al. [46] 6Conv2FC ANN2SNN 1w-32u 300 62.02%
+Yoo et al. [60] VGG16 ANN2SNN 1w-32u 32 66.53%
+Deng et al. [9] 7Conv3FC Direct train 1w-32u 8 55.95%
+Pei et al. [32] 6Conv1FC Direct train 1w-32u 1 69.55%
+Proposed Q-SNN ResNet19 Direct train
+1w-8u 2 78.77%
+1w-4u 2 78.82%
+1w-2u 2 78.70%
+TinyImageNet
+Full-Precision SNN‡ VGG16 Direct train 32w-32u 4 56.77%
+Yin et al. [59] VGG16
+Direct train 8w-8u 4 50.18%
+Direct train 4w-4u 4 49.36%
+Direct train 2w-2u 4 48.60%
+Proposed Q-SNN VGG16 Direct train
+1w-8u 4 55.70%
+1w-4u 4 55.20%
+1w-2u 4 55.04%
+DVS-Gesture
+Full-Precision SNN‡ VGGSNN* Direct train 32w-32u 16 97.83%
+Pei et al. [32] 5Conv1FC Direct train 1w-32u 20 94.63%
+Qiao et al. [34] 2Conv2FC Direct train 1w-32u 150 97.57%
+Yoo et al. [60] 15Conv1FC Direct train 1w-32u 16 97.57%
+Proposed Q-SNN VGGSNN Direct train
+1w-8u 16 97.92%
+1w-4u 16 97.57%
+1w-2u 16 96.53%
+DVS-CIFAR10
+Full-Precision SNN‡ VGGSNN Direct train 32w-32u 10 82.10%
+Qiao et al. [34] 2Conv2FC Direct train 1w-32u 25 62.10%
+Pei et al. [32] 5Conv1FC Direct train 1w-32u 10 68.98%
+Yoo et al. [60] 16Conv1FC Direct train 1w-32u 16 74.70%
+Proposed Q-SNN VGGSNN Direct train
+1w-8u 10 81.60%
+1w-4u 10 81.50%
+1w-2u 10 80.00%
+1
+32w-32u: The model with 32-bit weights and 32-bit membrane potentials.
+‡
+: Self-implementation results with the same experimental setting. ∗VGGSNN: 8Conv1FC.
+Implementation details. We first present the architecture em ployed for each dataset. For static CIFAR-10 and CIFAR-100 datasets,
+we employ the well-established structure of ResNet19. For the
+TinyImageNet dataset, we employ the VGG16 structure to facil itate comparison with [59]. For DVS-Gesture and DVS-CIFAR10
+datasets, we implement the structure of VGGSNN commonly used
+in SNNs [10, 42]. Within these architectures, the weights in the first
+layer and the last layer are quantized to 8 bit, while the weights in
+hidden layers are quantized to 1 bit [24]. Subsequently, we eluci date the implementation details within our experiments. We employ
+the Adam optimizer for the TinyImageNet dataset, while the SGD
+optimizer for other datasets, and the batch size is set to 256 for
+Q-SNNs: Quantized Spiking Neural Networks MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia.
+1w-2u 2w-2u 1w-32u 2w-32u
+Bit Width
+88
+89
+90
+91
+92
+93
+94
+95 Q-SNN
+1.62MB
+Yin et al.
+[2023]
+3.70MB
+Yoo et al.
+[2023]
+3.70MB
+Wang et al.
+[2020]
+1.75MB
+Rueckauer et al.
+[2017]
+1.75MB
+Zhou et al.
+[2021]
+13.63MB
+Deng et al.
+[2021]
+15.5MB
+Accuracy and model size comparison
+ on CIFAR-10
+Figure 3: Comparison of the model size and accuracy between
+the proposed Q-SNN and existing quantized SNN approaches
+on the CIFAR-10 dataset.
+static image datasets and 64 for neuromorphic datasets. The initial
+learning rate is set to 0.1 across all datasets and we adopt a cosine
+learning rate decay schedule during training. Moreover, the leaky
+factor 𝜏 and the firing threshold 𝜃 of the LIF neuron within Q-SNNs
+should be specified, which is set to 0.5 and 1, respectively. The time
+step 𝑇 is set to 2 for CIFAR-10 and CIFAR-100, 4 for TinyImageNet,
+16 for DVS-Gesture, and 10 for DVS-CIFAR10. The hyperparameter
+value for the loss term L𝑠 is set to 1e-3 for all utilized datasets. All
+experiments in this paper leverage the PyTorch library, which is a
+versatile framework widely adopted in deep learning research.
+5.2 Comparative study
+We compare the performance and model size of Q-SNNs with ex isting quantized SNN methods to prove the effectiveness and ef ficiency of our method, respectively. Our experiments across all
+datasets involve three bit-width configurations: 1w-8u, 1w-4u, and
+1w-2u, where ‘1w-8u’ signifies that the Q-SNN utilizes 1-bit synap tic weights and 8-bit membrane potentials.
+We first analyze the performance comparison results. As shown
+in Table 1, when compared with ANN2SNN learning algorithms
+that necessitate a large time step to guarantee lossless conversion
+(i.e., Wang et al. [46] set it to 100 on CIFAR-10 and 300 on CIFAR-
+100), the proposed Q-SNNs trained from scratch require fewer time
+steps to attain top-1 performance, such as 2 on CIFAR datasets
+and 4 on TinyImageNet dataset. When compared with direct learn ing algorithms, our work also achieves the top-1 accuracy on all
+datasets, i.e., 95.54% on CIFAR-10 under 1w-8u, 78.82% on CIFAR-
+100 under 1w-4u, 55.70% on TinyImageNet under 1w-8u, 97.92%
+on DVS-Gesture under 1w-8u, and 81.60% on DVS-CIFAR10 under
+1w-8u. Moreover, it can be observed from Table 1 that the pro posed Q-SNNs demonstrate comparable performance to that of
+full-precision SNNs with extremely compressed bit width across
+all datasets. Noteworthy, on the DVS-Gesture dataset, Q-SNN con figured with 1w-8u achieves an accuracy of 97.92%, surpassing the
+corresponding full-precision SNN model. This superiority can be
+attributed to the dataset’s simplicity and abundant noise, where
+Table 2: Comparison of the memory footprint between the
+proposed Q-SNNs and full-precision SNNs. The value in
+brackets is the reduction in memory footprint relative to
+full-precision SNNs.
+Batch Bit Width ResNet19 VGG16 VGGSNN
+32w-32u 50.80 (-0.00%) 59.16 (-0.00%) 37.44 (-0.00%)
+1w-8u 1.75 (-96.56%) 1.96 (-96.69%) 1.31 (-96.50%)
+1w-4u 1.68 (-96.69%) 1.93 (-96.74%) 1.25 (-96.66%)
+1w-2u 1.65 (-96.75%) 1.91 (-96.77%) 1.21 (-96.77%)
+32w-32u 83.83 (-0.00%) 75.67 (-0.00%) 70.47 (-0.00%)
+1w-8u 10.0 (-88.07%) 6.09 (-91.95%) 9.57 (-86.42%)
+1w-4u 5.81 (-93.07%) 3.99 (-94.73%) 5.38 (-92.37%)
+1w-2u 3.72 (-95.56%) 2.94 (-96.11%) 3.28 (-95.35%)
+32w-32u 184.49 (-0.00%) 126.01 (-0.00%) 171.13 (-0.00%)
+1w-8u 35.17 (-80.94%) 18.67 (-85.18%) 34.74 (-79.70%)
+1w-4u 18.40 (-90.03%) 10.28 (-91.84%) 17.96 (-89.51%)
+1w-2u 10.01 (-94.57%) 6.09 (-95.17%) 9.57 (-94.41%)
+the Q-SNN utilizing a low bit-width representation demonstrates
+robustness.
+In addition to the outstanding performance, our method also
+demonstrates a compact model size. We evaluate the model size of
+the proposed Q-SNN alongside existing quantized SNN methods on
+the CIFAR-10 dataset, with the results illustrated in Figure 3. Clearly,
+Q-SNN stands out with the smallest model size of 1.62MB and the
+highest accuracy of 95.20%. When compared with the work [59] that
+employs the same architecture of ResNet19, our method demon strates a remarkable 56.22% reduction in model size and a 4.41%
+increase in accuracy with fewer time steps. In summary, our work
+further exploits the efficiency advantage inherent in SNNs while
+maintaining superior performance, which offers a promising solu tion for flexible deployment in resource-limited scenarios.
+5.3 Ablation study
+We conduct ablation experiments to validate the efficiency of Q SNN and the effectiveness of the WS-DR method, respectively. All
+ablation experiments are performed on the CIFAR-10 dataset with
+the architecture of ResNet19, and experimental setups follow the
+description in Sec. 5.1.
+We first validate the efficiency of the proposed Q-SNN. As il lustrated in Table 2, we compute the memory footprint of our
+method under different architectures and bit-width configurations,
+obtaining two conclusions. Firstly, the proposed Q-SNN typically
+realizes a significant reduction in memory footprint compared to
+full-precision SNNs. For instance, employing the ResNet19 archi tecture with the batch size of 1, the Q-SNN with 1w-8u, 1w-4u, and
+1w-2u achieves memory footprint reduction of 96.56%, 96.69%, and
+96.75% respectively when compared with the full-precision SNN.
+Secondly, the benefit of the membrane potential quantization is
+positively correlated with the batch size. Taking VGGSNN as an
+example, when the batch size is set to 1, the compression of the mem brane potential from 8 bit to 2 bit only yields a memory footprint
+reduction from 96.50% to 96.77%. In contrast, when the batch size is
+set to 256, the corresponding memory footprint reduction increases
+from 79.70% to 94.41%, underscoring the importance of membrane
+A
+c
+c
+u
+r
+a
+c
+y
+(
+%
+)
+batch=1 batch=64 batch=256
+MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia. Wenjie Wei et al.
+0 1
+0.00
+0.60
+1.20 1e5
+pw:0.49
+Layer1 0 1
+0.00
+0.60
+1.20 1e5
+pw:0.49
+Layer2 0 1
+0.00
+0.60
+1.20 1e5
+pw:0.49
+Layer3 0 1
+0.00
+0.60
+1.20 1e5
+pw:0.49
+Layer4
+0.00
+0 1
+0.60
+1.20 1e5
+pw:0.49
+Layer5
+0.00
+0 1
+0.60
+1.20 1e5
+pw:0.48
+Layer6
+0.00
+0 1
+1.21
+2.41 1e5
+pw:0.48
+Layer7
+0.00
+0 1
+2.40
+4.80 1e5
+pw:0.49
+Layer8
+(a)
+0 1
+0.00
+1.75
+3.51 1e6
+ps:0.30
+Layer1 0 1
+0.00
+1.84
+3.69 1e6
+ps:0.26
+Layer2 0 1
+0.00
+1.76
+3.52 1e6
+ps:0.30
+Layer3 0 1
+0.00
+2.10
+4.20 1e6
+ps:0.16
+Layer4
+0.00
+0 1
+1.79
+3.57 1e6
+ps:0.29
+Layer5
+0.00
+0 1
+2.13
+4.25 1e6
+ps:0.15
+Layer6
+0.00
+0 1
+1.77
+3.55 1e6
+ps:0.29
+Layer7
+0.00
+0 1
+1.03
+2.06 1e6
+ps:0.18
+Layer8
+(b)
+Figure 4: (a) The distribution of synaptic weights in Q-SNN after applying the WS-DR method. (b) The distribution of spike
+activities in Q-SNN after applying the WS-DR method. These subfigures are plotted based on obtained results in the first eight
+layers of ResNet19 on the CIFAR-10 dataset.
+Q-SNN Q-SNN+WS-DR FP SNN 90
+92
+94
+96
+98
+93.42%
+95.20%
+96.36%
+Ablation study for the WS-DR
+Bit Width: 1w-2u
+Bit Width: 32w-32u
+Figure 5: Ablation study for the WS-DR method, where ‘FP
+SNN’ denotes the full-precision SNN.
+potential quantization. In summary, the proposed Q-SNNs have
+maximized the energy efficiency of the network by considering
+the quantization of both synaptic weights and memory-intensive
+membrane potentials.
+We now validate the effectiveness of the proposed WS-DR method.
+As depicted in Figure 4, we plot the distribution of weights and spike
+activities in the first eight layers of ResNet-19 after applying the
+WS-DR method, respectively. It can be observed from in Figure 4(a)
+that the synaptic weights display a uniform distribution, with the
+probability 𝑝𝑤 approaching 0.5, so the 𝑤 in Q-SNNs have carried
+a greater amount of information. Moreover, it can be seen from
+Figure 4(b) that the probability 𝑝𝑠 becomes larger than Figure 2,
+thus also demonstrating the increased information content for 𝑠 in
+Q-SNNs. In addition to the enhanced information content, we also
+compare the performance of three models: pure Q-SNN, Q-SNN
+integrated with the WS-DR method, and full-precision SNN. As
+illustrated in Figure 5, under the configuration of 1w-2u, the Q-SNN
+integrated with the WS-DR method achieves an accuracy of 95.20%,
+surpasses that of Q-SNN without using the WS-DR method by 1.78%.
+Notably, the performance of our model is comparable to the full precision SNN of 96.36% by only using 1-bit synaptic weights and
+2-bit membrane potentials. Therefore, the WS-DR method enhances
+the information content of both synaptic weights 𝑤 and spike ac tivities 𝑠 in Q-SNNs, thereby resulting in performance comparable
+to that of full-precision SNN.
+6 Conclusion
+Spiking neural networks have emerged as a promising approach
+for next-generation artificial intelligence due to their sparse, event driven nature and inherent energy efficiency. However, the prevail ing focus within the SNN research community on achieving high
+performance by designing large-scale SNNs often overshadowed
+the energy efficiency benefits inherent to SNNs. While efforts have
+been made to compress such large-scale SNNs by quantizing synap tic weights to lower bit widths, existing methods face limitations
+in both efficiency and performance. This work introduced an effi cient and effective Quantized SNN (Q-SNN) architecture to address
+these limitations. The proposed Q-SNN used efficient 1-bit weights
+and low-precision (2/4/8-bit) membrane potentials to maximize
+SNN efficiency. In addition, inspired by information entropy the ory, we proposed a novel Weight-Spike Dual Regulation (WS-DR)
+method to mitigate the performance degradation caused by quan tization. This enabled the training of high-performance Q-SNNs
+from scratch. Experimental evaluations on static and neuromor phic datasets demonstrated that the proposed Q-SNN with WS-DR
+achieved state-of-the-art results in efficiency and performance com pared to existing quantized SNN approaches. The obtained results
+demonstrate the potential of the proposed Q-SNNs in facilitating
+the widespread deployment of neuromorphic intelligent systems
+and advancing the development of edge intelligent computing.
+7 Acknowledgments
+This work was supported in part by the National Natural Science
+Foundation of China under grant U20B2063, 62220106008, and
+62106038, the Sichuan Science and Technology Program under
+Grant 2024NSFTD0034 and 2023YFG0259. Dis
+t
+rib
+u
+tio
+n
+o
+f
+w in
+Q-S
+N
+N
+s
+Dis
+t
+rib
+u
+tio
+n
+o
+f
+s in
+Q-S
+N
+N
+s
+A
+c
+c
+u
+r
+a
+c
+y
+(
+%
+)
+Q-SNNs: Quantized Spiking Neural Networks MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia.
+References
+[1] Filipp Akopyan, Jun Sawada, Andrew Cassidy, Rodrigo Alvarez-Icaza, John
+Arthur, Paul Merolla, Nabil Imam, Yutaka Nakamura, Pallab Datta, Gi-Joon Nam,
+et al. 2015. Truenorth: Design and tool flow of a 65 mw 1 million neuron pro grammable neurosynaptic chip. IEEE transactions on computer-aided design of
+integrated circuits and systems 34, 10 (2015), 1537–1557.
+[2] Arnon Amir, Brian Taba, David Berg, Timothy Melano, Jeffrey McKinstry,
+Carmelo Di Nolfo, Tapan Nayak, Alexander Andreopoulos, Guillaume Garreau,
+Marcela Mendoza, et al. 2017. A low power, fully event-based gesture recogni tion system. In Proceedings of the IEEE conference on computer vision and pattern
+recognition. 7243–7252.
+[3] Malyaban Bal and Abhronil Sengupta. 2023. Spikingbert: Distilling bert to
+train spiking language models using implicit differentiation. arXiv preprint
+arXiv:2308.10873 (2023).
+[4] Kaiwei Che, Luziwei Leng, Kaixuan Zhang, Jianguo Zhang, Qinghu Meng, Jie
+Cheng, Qinghai Guo, and Jianxing Liao. 2022. Differentiable hierarchical and
+surrogate gradient search for spiking neural networks. Advances in Neural
+Information Processing Systems 35 (2022), 24975–24990.
+[5] Yanqi Chen, Zhaofei Yu, Wei Fang, Tiejun Huang, and Yonghong Tian. 2021.
+Pruning of deep spiking neural networks through gradient rewiring. arXiv
+preprint arXiv:2105.04916 (2021).
+[6] Sayeed Shafayet Chowdhury, Isha Garg, and Kaushik Roy. 2021. Spatio-temporal
+pruning and quantization for low-latency spiking neural networks. In 2021 Inter national Joint Conference on Neural Networks (IJCNN). IEEE, 1–9.
+[7] Mike Davies, Narayan Srinivasa, Tsung-Han Lin, Gautham Chinya, Yongqiang
+Cao, Sri Harsha Choday, Georgios Dimou, Prasad Joshi, Nabil Imam, Shweta Jain,
+et al. 2018. Loihi: A neuromorphic manycore processor with on-chip learning.
+Ieee Micro 38, 1 (2018), 82–99.
+[8] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. 2009. Imagenet:
+A large-scale hierarchical image database. In 2009 IEEE conference on computer
+vision and pattern recognition. Ieee, 248–255.
+[9] Lei Deng, Yujie Wu, Yifan Hu, Ling Liang, Guoqi Li, Xing Hu, Yufei Ding, Peng Li,
+and Yuan Xie. 2021. Comprehensive snn compression using admm optimization
+and activity regularization. IEEE transactions on neural networks and learning
+systems 34, 6 (2021), 2791–2805.
+[10] Shikuang Deng, Yuhang Li, Shanghang Zhang, and Shi Gu. 2022. Temporal
+efficient training of spiking neural network via gradient re-weighting. arXiv
+preprint arXiv:2202.11946 (2022).
+[11] Yiting Dong, Dongcheng Zhao, and Yi Zeng. 2024. Temporal knowledge sharing
+enable spiking neural network learning from past and future. IEEE Transactions
+on Artificial Intelligence (2024).
+[12] Yufei Guo, Xuhui Huang, and Zhe Ma. 2023. Direct learning-based deep spiking
+neural networks: a review. Frontiers in Neuroscience 17 (2023), 1209795.
+[13] Yufei Guo, Weihang Peng, Yuanpei Chen, Liwen Zhang, Xiaode Liu, Xuhui Huang,
+and Zhe Ma. 2023. Joint a-snn: Joint training of artificial and spiking neural
+networks via self-distillation and weight factorization. Pattern Recognition 142
+(2023), 109639.
+[14] Yufei Guo, Xinyi Tong, Yuanpei Chen, Liwen Zhang, Xiaode Liu, Zhe Ma, and
+Xuhui Huang. 2022. RecDis-SNN: Rectifying Membrane Potential Distribution
+for Directly Training Spiking Neural Networks. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition (CVPR). 326–335.
+[15] A. L. Hodgkin and A. F. Huxley. [n. d.]. A quantitative description of membrane
+current and its application to conduction and excitation in nerve. The Journal of
+Physiology ([n. d.]), 500–544. https://doi.org/10.1113/jphysiol.1952.sp004764
+[16] Wei Huang, Yangdong Liu, Haotong Qin, Ying Li, Shiming Zhang, Xianglong
+Liu, Michele Magno, and Xiaojuan Qi. 2024. BiLLM: Pushing the Limit of Post Training Quantization for LLMs. arXiv preprint arXiv:2402.04291 (2024).
+[17] Eugene M Izhikevich. 2003. Simple model of spiking neurons. IEEE Transactions
+on neural networks 14, 6 (2003), 1569–1572.
+[18] Hyeryung Jang, Nicolas Skatchkovsky, and Osvaldo Simeone. 2021. BiSNN:
+training spiking neural networks with binary weights via bayesian learning. In
+2021 IEEE Data Science and Learning Workshop (DSLW). IEEE, 1–6.
+[19] Saeed Reza Kheradpisheh, Maryam Mirsadeghi, and Timothée Masquelier. 2022.
+Bs4nn: Binarized spiking neural networks with temporal coding and learning.
+Neural Processing Letters 54, 2 (2022), 1255–1273.
+[20] Seijoon Kim, Seongsik Park, Byunggook Na, and Sungroh Yoon. 2020. Spiking yolo: spiking neural network for energy-efficient object detection. In Proceedings
+of the AAAI conference on artificial intelligence, Vol. 34. 11270–11277.
+[21] Alex Krizhevsky, Geoffrey Hinton, et al. 2009. Learning multiple layers of features
+from tiny images. (2009).
+[22] Ravi Kumar Kushawaha, Saurabh Kumar, Biplab Banerjee, and Rajbabu Velmuru gan. 2021. Distilling spikes: Knowledge distillation in spiking neural networks. In
+2020 25th International Conference on Pattern Recognition (ICPR). IEEE, 4536–4543.
+[23] Hongmin Li, Hanchao Liu, Xiangyang Ji, Guoqi Li, and Luping Shi. 2017. Cifar10-
+dvs: an event-stream dataset for object classification. Frontiers in neuroscience 11
+(2017), 244131.
+[24] Yuhang Li, Xin Dong, and Wei Wang. 2019. Additive powers-of-two quantization:
+An efficient non-uniform discretization for neural networks. arXiv preprint
+arXiv:1909.13144 (2019).
+[25] Yaxin Li, Xuanye Fang, Yuyuan Gao, Dongdong Zhou, Jiangrong Shen, Jian K
+Liu, Gang Pan, and Qi Xu. 2024. Efficient structure slimming for spiking neural
+networks. IEEE Transactions on Artificial Intelligence (2024).
+[26] Yuhang Li, Youngeun Kim, Hyoungseob Park, Tamar Geller, and Priyadarshini
+Panda. 2022. Neuromorphic data augmentation for training spiking neural
+networks. In Computer Vision–ECCV 2022: 17th European Conference, Tel Aviv,
+Israel, October 23–27, 2022, Proceedings, Part VII. Springer, 631–649.
+[27] Yaxin Li, Qi Xu, Jiangrong Shen, Hongming Xu, Long Chen, and Gang Pan. 2024.
+Towards Efficient Deep Spiking Neural Networks Construction with Spiking
+Activity based Pruning. arXiv preprint arXiv:2406.01072 (2024).
+[28] Qianhui Liu, Jiaqi Yan, Malu Zhang, Gang Pan, and Haizhou Li. 2024. LitE-SNN:
+Designing Lightweight and Efficient Spiking Neural Network through Spatial Temporal Compressive Network Search and Joint Optimization. arXiv preprint
+arXiv:2401.14652 (2024).
+[29] Sen Lu and Abhronil Sengupta. 2020. Exploring the Connection Between Binary
+and Spiking Neural Networks. Frontiers in Neuroscience 14 (2020). https://doi.
+org/10.3389/fnins.2020.00535
+[30] Zihan Pan, Malu Zhang, Jibin Wu, Jiadong Wang, and Haizhou Li. 2021. Multi tone phase coding of interaural time difference for sound source localization with
+spiking neural networks. IEEE/ACM Transactions on Audio, Speech, and Language
+Processing 29 (2021), 2656–2670.
+[31] Jing Pei, Lei Deng, Sen Song, Mingguo Zhao, Youhui Zhang, Shuang Wu, Guanrui
+Wang, Zhe Zou, Zhenzhi Wu, Wei He, et al. 2019. Towards artificial general
+intelligence with hybrid Tianjic chip architecture. Nature 572, 7767 (2019), 106–
+111.
+[32] Yijian Pei, Changqing Xu, Zili Wu, and Yintang Yang. 2023. ALBSNN: ultra-low
+latency adaptive local binary spiking neural network with accuracy loss estimator.
+Frontiers in Neuroscience 17 (2023), 1225871.
+[33] Rachmad Vidya Wicaksana Putra and Muhammad Shafique. 2024. SpikeNAS: A
+Fast Memory-Aware Neural Architecture Search Framework for Spiking Neural
+Network Systems. arXiv preprint arXiv:2402.11322 (2024).
+[34] GC Qiao, Ning Ning, Yue Zuo, SG Hu, Qi Yu, and Yecheng Liu. 2021. Direct
+training of hardware-friendly weight binarized spiking neural network with
+surrogate gradient learning towards spatio-temporal event-based dynamic data
+recognition. Neurocomputing 457 (2021), 203–213.
+[35] Haotong Qin, Yifu Ding, Mingyuan Zhang, Qinghua Yan, Aishan Liu, Qingqing
+Dang, Ziwei Liu, and Xianglong Liu. 2022. Bibert: Accurate fully binarized bert.
+arXiv preprint arXiv:2203.06390 (2022).
+[36] Haotong Qin, Ruihao Gong, Xianglong Liu, Xiao Bai, Jingkuan Song, and Nicu
+Sebe. 2020. Binary neural networks: A survey. Pattern Recognition 105 (2020),
+107281.
+[37] Haotong Qin, Xudong Ma, Xingyu Zheng, Xiaoyang Li, Yang Zhang, Shouda Liu,
+Jie Luo, Xianglong Liu, and Michele Magno. 2024. Accurate LoRA-Finetuning
+Quantization of LLMs via Information Retention. arXiv preprint arXiv:2402.05445
+(2024).
+[38] Mohammad Rastegari, Vicente Ordonez, Joseph Redmon, and Ali Farhadi. 2016.
+Xnor-net: Imagenet classification using binary convolutional neural networks.
+In European conference on computer vision. Springer, 525–542.
+[39] Deboleena Roy, Indranil Chakraborty, and Kaushik Roy. 2019. Scaling deep spik ing neural networks with binary stochastic activations. In 2019 IEEE International
+Conference on Cognitive Computing (ICCC). IEEE, 50–58.
+[40] Bodo Rueckauer, Iulia-Alexandra Lungu, Yuhuang Hu, Michael Pfeiffer, and Shih Chii Liu. 2017. Conversion of Continuous-Valued Deep Networks to Efficient
+Event-Driven Networks for Image Classification. Frontiers in Neuroscience 11 (12
+2017). https://doi.org/10.3389/fnins.2017.00682
+[41] Jiangrong Shen, Qi Xu, Jian K Liu, Yueming Wang, Gang Pan, and Huajin Tang.
+2023. Esl-snns: An evolutionary structure learning strategy for spiking neural
+networks. In Proceedings of the AAAI Conference on Artificial Intelligence, Vol. 37.
+86–93.
+[42] Xinyu Shi, Jianhao Ding, Zecheng Hao, and Zhaofei Yu. 2023. Towards Energy
+Efficient Spiking Neural Networks: An Unstructured Pruning Framework. In The
+Twelfth International Conference on Learning Representations.
+[43] Martino Sorbaro, Qian Liu, Massimo Bortone, and Sadique Sheik. 2020. Opti mizing the energy consumption of spiking neural networks for neuromorphic
+applications. Frontiers in neuroscience 14 (2020), 516916.
+[44] Qiaoyi Su, Yuhong Chou, Yifan Hu, Jianing Li, Shijie Mei, Ziyang Zhang, and
+Guoqi Li. 2023. Deep directly-trained spiking neural networks for object detection.
+In Proceedings of the IEEE/CVF International Conference on Computer Vision. 6555–
+6565.
+[45] Sugahara Takuya, Renyuan Zhang, and Yasuhiko Nakashima. 2021. Training
+low-latency spiking neural network through knowledge distillation. In 2021 IEEE
+Symposium in Low-Power and High-Speed Chips (COOL CHIPS). IEEE, 1–3.
+[46] Yixuan Wang, Yang Xu, Rui Yan, and Huajin Tang. 2020. Deep spiking neural
+networks with binary weights for object recognition. IEEE Transactions on
+Cognitive and Developmental Systems 13, 3 (2020), 514–523.
+MM ’24, October 28–November 1, 2024, Melbourne, VIC, Australia. Wenjie Wei et al.
+[47] Wenjie Wei, Malu Zhang, Hong Qu, Ammar Belatreche, Jian Zhang, and Hong
+Chen. 2023. Temporal-coded spiking neural networks with dynamic firing thresh old: Learning with event-driven backpropagation. In Proceedings of the IEEE/CVF
+International Conference on Computer Vision. 10552–10562.
+[48] Wenjie Wei, Malu Zhang, Jilin Zhang, Ammar Belatreche, Jibin Wu, Zijing Xu,
+Xuerui Qiu, Hong Chen, Yang Yang, and Haizhou Li. 2024. Event-Driven Learning
+for Spiking Neural Networks. arXiv preprint arXiv:2403.00270 (2024).
+[49] Jibin Wu, Yansong Chua, Malu Zhang, Haizhou Li, and Kay Chen Tan. 2018. A
+spiking neural network framework for robust sound classification. Frontiers in
+neuroscience 12 (2018), 836.
+[50] Jibin Wu, Chenglin Xu, Xiao Han, Daquan Zhou, Malu Zhang, Haizhou Li, and
+Kay Chen Tan. 2021. Progressive tandem learning for pattern recognition with
+deep spiking neural networks. IEEE Transactions on Pattern Analysis and Machine
+Intelligence 44, 11 (2021), 7824–7840.
+[51] Jibin Wu, Emre Yılmaz, Malu Zhang, Haizhou Li, and Kay Chen Tan. 2020. Deep
+spiking neural networks for large vocabulary automatic speech recognition.
+Frontiers in neuroscience 14 (2020), 199.
+[52] Yujie Wu, Lei Deng, Guoqi Li, and Luping Shi. 2018. Spatio-temporal backprop agation for training high-performance spiking neural networks. Frontiers in
+neuroscience 12 (2018), 323875.
+[53] Yujie Wu, Lei Deng, Guoqi Li, Jun Zhu, Yuan Xie, and Luping Shi. 2019. Direct
+training for spiking neural networks: Faster, larger, better. In Proceedings of the
+AAAI conference on artificial intelligence, Vol. 33. 1311–1318.
+[54] Qi Xu, Jie Deng, Jiangrong Shen, Biwu Chen, Huajin Tang, and Gang Pan. [n. d.].
+Hybrid Spiking Vision Transformer for Event-Based Object Detection. Available
+at SSRN 4790563 ([n. d.]).
+[55] Qi Xu, Yaxin Li, Xuanye Fang, Jiangrong Shen, Jian K Liu, Huajin Tang, and
+Gang Pan. 2023. Biologically inspired structure learning with reverse knowledge
+distillation for spiking neural networks. arXiv preprint arXiv:2304.09500 (2023).
+[56] Qi Xu, Yaxin Li, Jiangrong Shen, Jian K Liu, Huajin Tang, and Gang Pan. 2023.
+Constructing deep spiking neural networks from artificial neural networks with
+knowledge distillation. In Proceedings of the IEEE/CVF Conference on Computer
+Vision and Pattern Recognition. 7886–7895.
+[57] Man Yao, Guangshe Zhao, Hengyu Zhang, Yifan Hu, Lei Deng, Yonghong Tian,
+Bo Xu, and Guoqi Li. 2023. Attention spiking neural networks. IEEE transactions
+on pattern analysis and machine intelligence (2023).
+[58] Ruokai Yin, Youngeun Kim, Yuhang Li, Abhishek Moitra, Nitin Satpute, Anna
+Hambitzer, and Priyadarshini Panda. 2023. Workload-balanced pruning for sparse
+spiking neural networks. arXiv preprint arXiv:2302.06746 (2023).
+[59] Ruokai Yin, Yuhang Li, Abhishek Moitra, and Priyadarshini Panda. [n. d.]. MINT:
+Multiplier-less INTeger Quantization for Energy Efficient Spiking Neural Net works. ([n. d.]).
+[60] Donghyung Yoo and Doo Seok Jeong. 2023. CBP-QSNN: Spiking Neural Networks
+Quantized Using Constrained Backpropagation. IEEE Journal on Emerging and
+Selected Topics in Circuits and Systems 13, 4 (2023), 1137–1146. https://doi.org/10.
+1109/JETCAS.2023.3328911
+[61] Malu Zhang, Hong Qu, Ammar Belatreche, Yi Chen, and Zhang Yi. 2018. A highly
+effective and robust membrane potential-driven supervised learning method for
+spiking neurons. IEEE transactions on neural networks and learning systems 30, 1
+(2018), 123–137.
+[62] Malu Zhang, Jiadong Wang, Jibin Wu, Ammar Belatreche, Burin Amornpaisan non, Zhixuan Zhang, Venkata Pavan Kumar Miriyala, Hong Qu, Yansong Chua,
+Trevor E Carlson, et al. 2021. Rectified linear postsynaptic potential function for
+backpropagation in deep spiking neural networks. IEEE transactions on neural
+networks and learning systems 33, 5 (2021), 1947–1958.
+[63] Shibo Zhou, Xiaohua Li, Ying Chen, Sanjeev T. Chandrasekaran, and Arindam
+Sanyal. 2021. Temporal-Coded Deep Spiking Neural Network with Easy Training
+and Robust Performance. In 35th AAAI Conference on Artificial Intelligence, AAAI
+2021 (35th AAAI Conference on Artificial Intelligence, AAAI 2021). Association for
+the Advancement of Artificial Intelligence, 11143–11151.
+[64] Rui-Jie Zhu, Qihang Zhao, Guoqi Li, and Jason K Eshraghian. 2023. Spikegpt:
+Generative pre-trained language model with spiking neural networks. arXiv
+preprint arXiv:2302.13939 (2023).

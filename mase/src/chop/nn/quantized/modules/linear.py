@@ -19,6 +19,7 @@ from torch.nn import functional as F
 
 
 from ..utils import get_stats, quantiser_passthrough
+from chop.nn.quantizers.SNN.APoT import APoT
 
 from chop.nn.quantizers import (
     residual_sign_quantizer,
@@ -122,6 +123,27 @@ class LinearInteger(_LinearBase):
         if self.bypass:
             return F.linear(x, self.weight, self.bias)
         return linearInteger(x, self.weight, self.bias, self.config, self.out_config)
+
+
+class LinearAPoT(_LinearBase):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        device=None,
+        dtype=None,
+        config=None,
+    ) -> None:
+        super().__init__(in_features, out_features, bias, device, dtype)
+        assert config is not None, "config is None!"
+        b = config.get("num_bits", 8)
+        base_k = config.get("base_k", 2)
+        self.weight_quan = APoT(num_bits=b, base_k=base_k)
+
+    def forward(self, x):
+        wq = self.weight_quan(self.weight)
+        return F.linear(x, wq, self.bias)
 
 
 class LinearMinifloatDenorm(_LinearBase):

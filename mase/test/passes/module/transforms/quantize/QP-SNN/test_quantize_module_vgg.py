@@ -9,7 +9,7 @@ from chop.passes.module.transforms.snn.ann2snn import ann2snn_module_transform_p
 from chop.passes.module.transforms import quantize_module_transform_pass
 
 # Add project root to import pure_vgg model
-project_root = Path(__file__).resolve().parents[6]
+project_root = Path(__file__).resolve().parents[7]
 sys.path.append(str(project_root))  # For models.layers import in pure_vgg
 sys.path.append(str(project_root / "models"))  # For pure_vgg import
 from pure_vgg import vgg_16_bn
@@ -33,21 +33,21 @@ mg_rescaw, _ = quantize_module_transform_pass(vgg, ReScaW_quan_pass_args)
 print(mg_rescaw)
 
 # Build a fresh model for Vanilla to avoid in-place replacement accumulation
-vgg_v = vgg_16_bn(compress_rate=[0.0] * 16, num_classes=10)
-for param in vgg_v.parameters():
-    param.requires_grad = True  # QAT training
+# vgg_v = vgg_16_bn(compress_rate=[0.0] * 16, num_classes=10)
+# for param in vgg_v.parameters():
+#     param.requires_grad = True  # QAT training
 
-Vanilla_quan_pass_args = {
-    "by": "regex_name",
-    r"features\.convbn(?!0\b)\d+\.layer\.module": {
-        "config": {
-            "name": "vanilla",
-            "num_bits": 4,
-        }
-    },
-}
-mg_vanilla, _ = quantize_module_transform_pass(vgg_v, Vanilla_quan_pass_args)
-print(mg_vanilla)
+# Vanilla_quan_pass_args = {
+#     "by": "regex_name",
+#     r"features\.convbn(?!0\b)\d+\.layer\.module": {
+#         "config": {
+#             "name": "vanilla",
+#             "num_bits": 4,
+#         }
+#     },
+# }
+# mg_vanilla, _ = quantize_module_transform_pass(vgg_v, Vanilla_quan_pass_args)
+# print(mg_vanilla)
 
 # convert_pass_args = {
 #     "by": "regex_name",

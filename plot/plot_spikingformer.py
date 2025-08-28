@@ -14,6 +14,12 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import warnings
+import logging
+
+# Silence warnings and logs
+warnings.filterwarnings('ignore')
+logging.getLogger().setLevel(logging.ERROR)
 
 # Ensure model registry available
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -24,10 +30,11 @@ sys.path.append(str(PROJECT_ROOT / 'Spikingformer' / 'cifar10'))
 from timm.models import create_model, load_checkpoint
 from chop.passes.module.transforms import quantize_module_transform_pass
 
-RUN_DIR_NOTQ = PROJECT_ROOT / 'output_spikingformer_quan' / 'not_quantized' / '20250825-025808-vitsnn-32'
-OUT_PATH_NOTQ = PROJECT_ROOT / 'plot' / 'spikingformer_not_quantized_CIFAR10_all_conv_hists.png'
-RUN_DIR_Q8 = PROJECT_ROOT / 'output_spikingformer_quan' / 'q8' / '20250825-040444-vitsnn-32'
-OUT_PATH_Q8 = PROJECT_ROOT / 'plot' / 'spikingformer_q8_CIFAR10_all_conv_hists.png'
+RUN_DIR_NOTQ = Path('/workspace/QP-SNN-Quantization-pass/output_spikingformer_quan/QP-SNN/CIFAR10/Vanilla_q8')
+OUT_PATH_NOTQ = PROJECT_ROOT / 'plot' / 'spikingformer' / 'spikingformer_Vanilla_q8_CIFAR10_all_conv_hists.png'
+RUN_DIR_Q8 = RUN_DIR_NOTQ
+OUT_PATH_Q8 = PROJECT_ROOT / 'plot' / 'spikingformer' / 'spikingformer_ReScaW_q8_CIFAR10_all_conv_hists.png'
+OUT_PATH_OVERLAY = PROJECT_ROOT / 'plot' / 'spikingformer' / 'spikingformer_q8.png'
 
 
 def plot_panel_for_run(run_dir: Path, out_path: Path, apply_quan: bool,
@@ -137,17 +144,100 @@ def plot_panel_for_run(run_dir: Path, out_path: Path, apply_quan: bool,
                     bbox=dict(facecolor='white', edgecolor='lightgray', alpha=0.8, boxstyle='round,pad=0.25'))
 
     plt.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=220)
-    print(f'[saved] {out_path}')
 
 
 def main():
-    # not-quantized (keep original behavior)
-    plot_panel_for_run(RUN_DIR_NOTQ, OUT_PATH_NOTQ, apply_quan=False,
-                       plot_rescaw_scaled=False, fixed_xlim=None)
-    # q8 quantized (visualize ReScaW scaling; fixed axis to [-2,2])
-    plot_panel_for_run(RUN_DIR_Q8, OUT_PATH_Q8, apply_quan=True,
-                       plot_rescaw_scaled=True, fixed_xlim=(-5.0, 5.0))
+    # Vanilla_q8, first figure: raw weights
+    if RUN_DIR_NOTQ.exists() and (RUN_DIR_NOTQ / 'args.yaml').exists():
+        plot_panel_for_run(RUN_DIR_NOTQ, OUT_PATH_NOTQ, apply_quan=True,
+                           plot_rescaw_scaled=False, fixed_xlim=None)
+    # q8 quantized
+    if RUN_DIR_Q8.exists() and (RUN_DIR_Q8 / 'args.yaml').exists():
+        plot_panel_for_run(RUN_DIR_Q8, OUT_PATH_Q8, apply_quan=True,
+                           plot_rescaw_scaled=True, fixed_xlim=(-5.0, 5.0))
+    # Overlay: ReScaW vs Vanilla, fixed axis [-5,5], legend in every subplot
+    if RUN_DIR_NOTQ.exists() and (RUN_DIR_NOTQ / 'args.yaml').exists():
+        with open(RUN_DIR_NOTQ / 'args.yaml', 'r') as f:
+            args = yaml.safe_load(f)
+        import model as spikingformer_model  # noqa: F401
+        # Build two models: vanilla (apply_quan=True ensures key structure) and rescaw
+        model_v = create_model(
+            'Spikingformer', pretrained=False,
+            drop_rate=0.0, drop_path_rate=0.2, drop_block_rate=None,
+            img_size_h=args['img_size'], img_size_w=args['img_size'],
+            patch_size=args['patch_size'], embed_dims=args['dim'], num_heads=args['num_heads'], mlp_ratios=args['mlp_ratio'],
+            in_channels=3, num_classes=args['num_classes'], qkv_bias=False,
+            depths=args['depths'], sr_ratios=1,
+        )
+        # vanilla needs quant pass only to match naming used by checkpoint
+        quan_pass_args = {
+            "by": "regex_name",
+            r"block\.\d+\.attn\.(q_conv|k_conv|v_conv|proj_conv)": {"config": {"name": "rescaw", "num_bits": 8}},
+            r"block\.\d+\.mlp\.mlp[12]_conv": {"config": {"name": "rescaw", "num_bits": 8}},
+        }
+        model_v, _ = quantize_module_transform_pass(model_v, quan_pass_args)
+        load_checkpoint(model_v, str(RUN_DIR_NOTQ / 'model_best.pth.tar'))
+
+        model_r = create_model(
+            'Spikingformer', pretrained=False,
+            drop_rate=0.0, drop_path_rate=0.2, drop_block_rate=None,
+            img_size_h=args['img_size'], img_size_w=args['img_size'],
+            patch_size=args['patch_size'], embed_dims=args['dim'], num_heads=args['num_heads'], mlp_ratios=args['mlp_ratio'],
+            in_channels=3, num_classes=args['num_classes'], qkv_bias=False,
+            depths=args['depths'], sr_ratios=1,
+        )
+        quan_pass_args_r = {
+            "by": "regex_name",
+            r"block\.\d+\.attn\.(q_conv|k_conv|v_conv|proj_conv)": {"config": {"name": "rescaw", "num_bits": 8}},
+            r"block\.\d+\.mlp\.mlp[12]_conv": {"config": {"name": "rescaw", "num_bits": 8}},
+        }
+        model_r, _ = quantize_module_transform_pass(model_r, quan_pass_args_r)
+        load_checkpoint(model_r, str(RUN_DIR_Q8 / 'model_best.pth.tar'))
+        sd_v = model_v.state_dict()
+        sd_r = model_r.state_dict()
+
+        blocks = int(args['depths']) if isinstance(args['depths'], int) else 4
+        cols = [
+            ('attn.q_conv',  'q_conv'),
+            ('attn.k_conv',  'k_conv'),
+            ('attn.v_conv',  'v_conv'),
+            ('attn.proj_conv','proj_conv'),
+            ('mlp.mlp1_conv','mlp1_conv'),
+            ('mlp.mlp2_conv','mlp2_conv'),
+        ]
+        fig, axes = plt.subplots(nrows=blocks, ncols=len(cols), figsize=(6*3.0, blocks*2.6))
+        if blocks == 1:
+            axes = np.expand_dims(axes, 0)
+
+        for i in range(blocks):
+            for j, (spec, short) in enumerate(cols):
+                ax = axes[i, j]
+                key = f'block.{i}.{spec}.weight'
+                title = f'Block{i}.{short}'
+                if key not in sd_v or key not in sd_r:
+                    ax.set_title(title + ' (missing)')
+                    ax.axis('off')
+                    continue
+                w_v = sd_v[key].detach().cpu().numpy().ravel()
+                w_r_full = sd_r[key].detach().cpu().numpy().ravel()
+                # use scalar mean-abs gamma for overlay一致性（与现有resnet_q8实现匹配）
+                gamma = float(np.mean(np.abs(w_r_full))) if w_r_full.size > 0 else 1.0
+                gamma = max(gamma, 1e-12)
+                w_r = w_r_full / gamma
+                xmin, xmax = -5.0, 5.0
+                bins = np.linspace(xmin, xmax, 81)
+                ax.hist(w_r, bins=bins, color='#2a6f97', alpha=0.85, edgecolor='white', label='ReScaW')
+                ax.hist(w_v, bins=bins, color='#7ec8e3', alpha=0.85, edgecolor='white', label='Vanilla')
+                ax.set_xlim(xmin, xmax)
+                ax.set_title(title)
+                ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.6)
+                ax.legend(loc='upper right', frameon=True, fontsize=8, handlelength=1.6, borderpad=0.25, labelspacing=0.25)
+
+        plt.tight_layout()
+        OUT_PATH_OVERLAY.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(OUT_PATH_OVERLAY, dpi=220)
 
 
 if __name__ == '__main__':

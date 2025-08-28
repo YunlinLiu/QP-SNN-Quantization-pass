@@ -1,7 +1,11 @@
 import torch
 
 from chop.nn.quantized.modules import quantized_module_map
-from ...module_modify_helper import replace_by_name, instantiate_module
+from ...module_modify_helper import (
+    replace_by_name,
+    instantiate_module,
+    manual_instantiate_module,
+)
 from ...state_dict_map import match_a_pattern, check_is_huggingface_model
 
 
@@ -37,6 +41,8 @@ def quantize_by_type(network, pass_args):
 
 def quantize_by_name(network, pass_args):
     is_huggingface_model = check_is_huggingface_model(network)
+    manual_instantiate = pass_args.get("manual_instantiate", False)
+    custom_module_map = pass_args.get("custom_module_map", None)
 
     quantize_names = pass_args.keys()
     n_m = {}
@@ -55,15 +61,28 @@ def quantize_by_name(network, pass_args):
                 else {"config": quan_config}
             )
 
-            new_m = instantiate_module(
-                m, postfix, quantized_module_map, additional_module_args
-            )
+            try:
+                new_m = instantiate_module(
+                    m, postfix, quantized_module_map, additional_module_args
+                )
+            except Exception:
+                if not manual_instantiate:
+                    raise
+                if custom_module_map is None:
+                    raise ValueError("manual_instantiate is True but custom_module_map is None")
+                # strip 'name' from config for manual instantiation of custom modules
+                mi_cfg = {k: v for k, v in quan_config.items() if k != "name"}
+                new_m = manual_instantiate_module(
+                    m, postfix, custom_module_map, {"config": mi_cfg}
+                )
             network = replace_by_name(network, n, new_m)
     return network
 
 
 def quantize_by_regex_name(network, pass_args):
     is_huggingface_model = check_is_huggingface_model(network)
+    manual_instantiate = pass_args.get("manual_instantiate", False)
+    custom_module_map = pass_args.get("custom_module_map", None)
 
     patterns = list(pass_args.keys())
     n_m = {}
@@ -84,9 +103,19 @@ def quantize_by_regex_name(network, pass_args):
             else {"config": quan_config}
         )
 
-        new_m = instantiate_module(
-            m, postfix, quantized_module_map, additional_module_args
-        )
+        try:
+            new_m = instantiate_module(
+                m, postfix, quantized_module_map, additional_module_args
+            )
+        except Exception:
+            if not manual_instantiate:
+                raise
+            if custom_module_map is None:
+                raise ValueError("manual_instantiate is True but custom_module_map is None")
+            mi_cfg = {k: v for k, v in quan_config.items() if k != "name"}
+            new_m = manual_instantiate_module(
+                m, postfix, custom_module_map, {"config": mi_cfg}
+            )
         network = replace_by_name(network, n, new_m)
 
     return network

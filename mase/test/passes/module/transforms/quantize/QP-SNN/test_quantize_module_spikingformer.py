@@ -7,10 +7,11 @@ import torch.nn as nn
 from chop.passes.module.transforms.snn.ann2snn import ann2snn_module_transform_pass
 from chop.passes.module.transforms import quantize_module_transform_pass
 
-project_root = Path(__file__).resolve().parents[6]
+project_root = Path(__file__).resolve().parents[7]
 sys.path.append(str(project_root))
-sys.path.append(str(project_root / "models"))
-from Spikingformer import Spikingformer
+sys.path.append(str(project_root / "Spikingformer" / "cifar10"))
+# 显式导入 Spikingformer/cifar10/model.py 以触发 timm 注册
+import model as spikingformer_model
 from timm.models import create_model
 from functools import partial
 

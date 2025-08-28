@@ -88,6 +88,82 @@ class LIFSpike(nn.Module):
         return torch.stack(spike_pot, dim=1)
 
 
+class LIFSpikeQ(nn.Module):
+    def __init__(self, thresh=1.0, tau=0.5, gama=1.0, num_bits=2, eps=1e-8):
+        super(LIFSpikeQ, self).__init__()
+        self.act = ZIF.apply
+        self.thresh = thresh
+        self.tau = tau
+        self.gama = gama
+        self.num_bits = num_bits
+        self.eps = eps
+
+    def forward(self, x):
+        mem = 0
+        spike_pot = []
+        T = x.shape[1]
+        s = float(2 ** (self.num_bits - 1) - 1) if self.num_bits > 1 else 1.0
+        for t in range(T):
+            if len(x.shape) == 3:
+                inp = x[:, t, :]
+            else:
+                inp = x[:, t, :, :, :]
+            mem = mem * self.tau + inp
+            alpha = torch.clamp(mem.detach().abs().amax(), min=self.eps)
+            mem_n = torch.clamp(mem / alpha, -1.0, 1.0)
+            if self.num_bits > 1:
+                mem_q = alpha * (torch.round(mem_n * s) / s)
+            else:
+                mem_q = alpha * torch.sign(mem_n)
+            mem_q = mem_q.detach() - mem.detach() + mem
+            spike = self.act(mem_q - self.thresh, self.gama)
+            mem = (1 - spike) * mem_q
+            spike_pot.append(spike)
+        return torch.stack(spike_pot, dim=1)
+
+
+class MultiStepLIFNodeQ(nn.Module):
+    def __init__(self, thresh=1.0, tau=2.0, num_bits=8, gama=1.0, eps=1e-8):
+        super(MultiStepLIFNodeQ, self).__init__()
+        self.act = ZIF.apply
+        self.thresh = thresh
+        self.tau = tau
+        self.gama = gama
+        self.num_bits = num_bits
+        self.eps = eps
+
+    def forward(self, x):
+        # x: [T, B, ...]
+        T = x.shape[0]
+        mem = 0
+        spikes = []
+        # quant grid scale
+        s = float(2 ** (self.num_bits - 1) - 1) if self.num_bits > 1 else 1.0
+        for t in range(T):
+            inp = x[t]
+            # simple decay + integrate; tau acts as decay factor when <=1 or as time-const-like when >1
+            if isinstance(self.tau, float) and self.tau <= 1.0:
+                mem = mem * self.tau + inp
+            else:
+                # convert time-constant like to decay factor 1-1/tau
+                decay = 1.0 - (1.0 / float(self.tau))
+                mem = mem * decay + inp
+
+            # layer-wise alpha_u per step
+            alpha = torch.clamp(mem.detach().abs().amax(), min=self.eps)
+            mem_n = torch.clamp(mem / alpha, -1.0, 1.0)
+            if self.num_bits > 1:
+                mem_q = alpha * (torch.round(mem_n * s) / s)
+            else:
+                mem_q = alpha * torch.sign(mem_n)
+            mem_q = mem_q.detach() - mem.detach() + mem
+
+            spike = self.act(mem_q - self.thresh, self.gama)
+            mem = (1 - spike) * mem_q
+            spikes.append(spike)
+        return torch.stack(spikes, dim=0)
+
+
 def add_dimention(x, T):
     x.unsqueeze_(1)
     x = x.repeat(1, T, 1, 1, 1)
