@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Train Q-SNN VGG16 on CIFAR-10 using pass-based quantization (1w-8u)
+# Train Q-SNN VGG16 on TinyImageNet using pass-based quantization (1w-8u)
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -31,16 +31,16 @@ from models.pure_vgg import vgg_16_bn
 from models.layers import LIFSpikeQ
 
 
-parser = argparse.ArgumentParser("CIFAR-10 VGG-16 Q-SNN (1w-8u) Quantization + Train")
+parser = argparse.ArgumentParser("TinyImageNet VGG-16 Q-SNN (1w-8u) Quantization + Train")
 
 parser.add_argument('--arch', type=str, default='vgg_16_bn', help='architecture')
-parser.add_argument('--job_dir', type=str, default='./output_vgg_quan/Q-SNN/CIFAR10/QSNN_1w8u/', help='path for saving models')
+parser.add_argument('--job_dir', type=str, default='./output_vgg_quan/Q-SNN/TinyImageNet/QSNN_1w8u/', help='path for saving models')
 parser.add_argument('--batch_size', type=int, default=256, help='batch size')
 parser.add_argument('--epochs', type=int, default=300, help='num of epochs')
 parser.add_argument('--lr', type=float, default=0.1, help='init learning rate')
 parser.add_argument('--resume', action='store_true', help='resume from checkpoint in job_dir')
 parser.add_argument('--gpu', type=str, default='0', help='Select gpu to use')
-parser.add_argument('--dataset', default='CIFAR10', type=str, choices=['CIFAR10'], help='dataset name')
+parser.add_argument('--dataset', default='TinyImageNet', type=str, choices=['TinyImageNet'], help='dataset name')
 
 args = parser.parse_args()
 print_freq = (256*50)//args.batch_size
@@ -57,7 +57,7 @@ def create_quantized_model_via_pass(compress_rate, num_classes):
     logger.info('==> Creating model via Q-SNN pass (1w-8u)..')
 
     vgg = vgg_16_bn(compress_rate=compress_rate, num_classes=num_classes)
-    vgg.T = 2
+    vgg.T = 4  # T=4 for TinyImageNet as per paper
     for param in vgg.parameters():
         param.requires_grad = True
 
@@ -80,7 +80,7 @@ def create_quantized_model_via_pass(compress_rate, num_classes):
     }
 
     mg, _ = quantize_module_transform_pass(vgg, pass_args)
-    logger.info('==> Q-SNN pass done (1w-8u, T=2, tau=0.5, thresh=1.0)')
+    logger.info('==> Q-SNN pass done (1w-8u, T=4, tau=0.5, thresh=1.0)')
     return mg
 
 
@@ -161,8 +161,9 @@ def main():
     cudnn.enabled = True
     logger.info("args = %s", args)
 
-    trainset, testset = data_loaders.build_cifar(cutout=True, use_cifar10=True, download=True)
-    CLASSES = 10
+    # Load TinyImageNet dataset
+    trainset, testset = data_loaders.build_tiny_imagenet()
+    CLASSES = 200  # TinyImageNet has 200 classes
     train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=8, pin_memory=True)
     val_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=8, pin_memory=True)
 
@@ -187,11 +188,11 @@ def main():
     weight_parameters_id = list(map(id, weight_parameters))
     other_parameters = list(filter(lambda p: id(p) not in weight_parameters_id, all_parameters))
 
-    # SGD optimizer for CIFAR-10 per paper; batch=256; cosine LR schedule; initial lr=0.1
-    optimizer = torch.optim.SGD(
+    # Adam optimizer for TinyImageNet per paper; batch=256; cosine LR schedule; initial lr=0.1
+    optimizer = torch.optim.Adam(
         [{'params': other_parameters},
          {'params': weight_parameters, 'weight_decay': 1e-4}],
-        lr=args.lr, momentum=0.9)
+        lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=args.epochs)
 
     start_epoch = 0
