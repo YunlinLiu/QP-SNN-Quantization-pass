@@ -33,7 +33,8 @@ from torch.nn.parallel import DistributedDataParallel as NativeDDP
 from timm.data import create_dataset, resolve_data_config, Mixup, FastCollateMixup, AugMixDataset, create_loader
 # from loader import create_loader
 from timm.models import create_model, safe_model_name, resume_checkpoint, load_checkpoint, \
-    convert_splitbn_model, model_parameters
+    model_parameters
+from timm.layers import convert_splitbn_model
 from timm.utils import *
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy, JsdCrossEntropy
 from timm.optim import create_optimizer_v2, optimizer_kwargs
@@ -81,29 +82,31 @@ parser.add_argument('-T', '--time-step', type=int, default=4, metavar='time',
                     help='simulation time step of spiking neuron (default: 4)')
 parser.add_argument('-L', '--layer', type=int, default=4, metavar='layer',
                     help='model layer (default: 4)')
-parser.add_argument('--num-classes', type=int, default=None, metavar='N',
+parser.add_argument('--num-classes', type=int, default=200, metavar='N',
                     help='number of label classes (Model default if None)')
-parser.add_argument('--img-size', type=int, default=None, metavar='N',
+parser.add_argument('--img-size', type=int, default=64, metavar='N',
                     help='Image patch size (default: None => model default)')
 parser.add_argument('--input-size', default=None, nargs=3, type=int,
                     metavar='N N N',
                     help='Input all image dimensions (d h w, e.g. --input-size 3 224 224), uses model default if empty')
-parser.add_argument('--dim', type=int, default=None, metavar='N',
+parser.add_argument('--dim', type=int, default=256, metavar='N',
                     help='embedding dimsension of feature')
-parser.add_argument('--num_heads', type=int, default=None, metavar='N',
+parser.add_argument('--num_heads', type=int, default=4, metavar='N',
                     help='attention head number')
-parser.add_argument('--patch-size', type=int, default=None, metavar='N',
+parser.add_argument('--patch-size', type=int, default=4, metavar='N',
                     help='Image patch size')
-parser.add_argument('--mlp-ratio', type=int, default=None, metavar='N',
+parser.add_argument('--mlp-ratio', type=int, default=4, metavar='N',
                     help='expand ration of embedding dimension in MLP block')
+parser.add_argument('--depths', type=int, default=8, metavar='N',
+                    help='number of transformer blocks (stage depth)')
 # Dataset / Model parameters
-parser.add_argument('-data-dir', metavar='DIR',default="/media/data/imagenet2012", #/dataset/ImageNet2012/
+parser.add_argument('-data-dir', metavar='DIR',default="/data/dataset/tiny-imagenet-200", # TinyImageNet root
                     help='path to dataset')
-parser.add_argument('--dataset', '-d', metavar='NAME', default='imagenet',
+parser.add_argument('--dataset', '-d', metavar='NAME', default='image_folder',
                     help='dataset type (default: ImageFolder/ImageTar if empty)')
 parser.add_argument('--train-split', metavar='NAME', default='train',
                     help='dataset train split (default: train)')
-parser.add_argument('--val-split', metavar='NAME', default='validation',
+parser.add_argument('--val-split', metavar='NAME', default='val',
                     help='dataset validation split (default: validation)')
 parser.add_argument('--pretrained', action='store_true', default=False,
                     help='Start with pretrained version of specified network (if avail)')
@@ -334,7 +337,7 @@ def main():
     args.distributed = False
     if 'WORLD_SIZE' in os.environ:
         args.distributed = int(os.environ['WORLD_SIZE']) > 1
-    args.device = 'cuda:1'
+    args.device = 'cuda:2'
     args.world_size = 1
     args.rank = 0  # global rank
     if args.distributed:

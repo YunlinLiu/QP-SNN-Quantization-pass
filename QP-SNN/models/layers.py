@@ -89,9 +89,14 @@ class LIFSpike(nn.Module):
 
 
 def add_dimention(x, T):
-    x.unsqueeze_(1)
-    x = x.repeat(1, T, 1, 1, 1)
-    return x
+    # Accept both 4D [B,C,H,W] and 5D [B,T,C,H,W] inputs
+    if x.dim() == 4:
+        x = x.unsqueeze(1).repeat(1, T, 1, 1, 1)
+        return x
+    elif x.dim() == 5:
+        return x
+    else:
+        raise ValueError(f"Unsupported input dims {x.dim()}, expected 4 or 5")
 
 
 # ----- For ResNet19 code -----

@@ -1,9 +1,12 @@
-dataset: imagenet
-num_classes: 1000
-img_size: 224
-dim: 768
-patch_size: 16
-num_heads: 8
+dataset: image_folder
+train_split: train
+val_split: val
+data_dir: /workspace/QP-SNN-Quantization-pass/data/tiny-imagenet-200
+num_classes: 200
+img_size: 64
+dim: 256
+patch_size: 4
+num_heads: 4
 mlp_ratio: 4
 mean:
     - 0.485

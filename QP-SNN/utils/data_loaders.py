@@ -153,10 +153,21 @@ def trans(data):
     data = resize(data).float()
     return data.float()
 
-def build_dvscifar10(path='/data/dataset/CIFAR10DVS', T=10):    #
+def build_dvscifar10(path=None, T=10):    #
 
-    train_path = path + '/train/Train' + str(T)
-    test_path = path + '/test/Test' + str(T)
+    # prefer workspace local data if exists
+    default_ws = '/workspace/QP-SNN-Quantization-pass/data/CIFAR10DVS'
+    default_sys = '/data/dataset/CIFAR10DVS'
+    if path is None:
+        path = default_ws if os.path.exists(default_ws) else default_sys
+
+    os.makedirs(path, exist_ok=True)
+    train_dir = os.path.join(path, 'train')
+    test_dir = os.path.join(path, 'test')
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(test_dir, exist_ok=True)
+    train_path = os.path.join(train_dir, 'Train' + str(T))
+    test_path = os.path.join(test_dir, 'Test' + str(T))
 
     if os.path.exists(train_path) and os.path.exists(test_path):
         trainset = torch.load(train_path)

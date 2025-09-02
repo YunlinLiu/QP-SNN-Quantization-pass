@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -20,7 +20,7 @@ from utils.functions import split_weights
 import numpy as np
 import matplotlib.pyplot as plt
 
-from models.quant_vgg import vgg_16_bn
+from models.quant_vgg import vgg_16_bn, vggsnn
 from models.quant_resnet_cifar import resnet_20
 
 
@@ -29,7 +29,7 @@ parser = argparse.ArgumentParser("cifar10 quant")
 parser.add_argument(
     '--arch',
     type=str,
-    default='vgg_16_bn',    # vgg_16_bn
+    default='vggsnn',    # vggsnn for DVSCIFAR10
     help='architecture')
 
 parser.add_argument(
@@ -41,7 +41,7 @@ parser.add_argument(
 parser.add_argument(
     '--batch_size',
     type=int,
-    default=256,
+    default=64,
     help='batch size')
 
 parser.add_argument(
@@ -69,10 +69,10 @@ parser.add_argument(
 
 parser.add_argument(
     '--dataset',
-    default='CIFAR10',
+    default='DVSCIFAR10',
     type=str,
     help='dataset name',
-    choices=['CIFAR10', 'CIFAR100', 'ImageNet', 'TinyImageNet'])
+    choices=['CIFAR10', 'CIFAR100', 'ImageNet', 'TinyImageNet', 'DVSCIFAR10'])
 
 parser.add_argument(
     '-j',
@@ -201,7 +201,7 @@ def main():
         trainset, testset = data_loaders.build_imagenet()
         CLASSES = 1000
     elif args.dataset == 'DVSCIFAR10':
-        trainset, testset = data_loaders.build_dvscifar()
+        trainset, testset = data_loaders.build_dvscifar10()
         CLASSES = 10
     elif args.dataset == 'TinyImageNet':
         trainset, testset = data_loaders.build_tiny_imagenet()
@@ -244,9 +244,15 @@ def main():
             weight_parameters.append(p)
     weight_parameters_id = list(map(id, weight_parameters))
     other_parameters = list(filter(lambda p: id(p) not in weight_parameters_id, all_parameters))
-    optimizer = torch.optim.Adam(
-        [{'params': other_parameters},
-         {'params': weight_parameters, 'weight_decay': 1e-5}], lr=args.lr, )
+    # Optimizer per dataset: DVSCIFAR10 uses SGD(lr=0.1), others keep Adam
+    if args.dataset == 'DVSCIFAR10':
+        optimizer = torch.optim.SGD(
+            [{'params': other_parameters},
+             {'params': weight_parameters, 'weight_decay': 5e-4}], lr=args.lr, momentum=0.9)
+    else:
+        optimizer = torch.optim.Adam(
+            [{'params': other_parameters},
+             {'params': weight_parameters, 'weight_decay': 1e-5}], lr=args.lr, )
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=0, T_max=args.epochs)
 

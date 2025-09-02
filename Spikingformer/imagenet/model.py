@@ -118,7 +118,7 @@ class SpikingTransformer(nn.Module):
 
 
 class SpikingTokenizer(nn.Module):
-    def __init__(self, img_size_h=128, img_size_w=128, patch_size=4, in_channels=2, embed_dims=256):
+    def __init__(self, img_size_h=64, img_size_w=64, patch_size=4, in_channels=3, embed_dims=256):
         super().__init__()
         self.image_size = [img_size_h, img_size_w]
         patch_size = to_2tuple(patch_size)
@@ -179,10 +179,10 @@ class SpikingTokenizer(nn.Module):
 
 class vit_snn(nn.Module):
     def __init__(self,
-                 img_size_h=128, img_size_w=128, patch_size=16, in_channels=2, num_classes=11,
-                 embed_dims=[64, 128, 256], num_heads=[1, 2, 4], mlp_ratios=[4, 4, 4], qkv_bias=False, qk_scale=None,
+                 img_size_h=64, img_size_w=64, patch_size=4, in_channels=3, num_classes=200,
+                 embed_dims=256, num_heads=4, mlp_ratios=4, qkv_bias=False, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
-                 depths=[6, 8, 6], sr_ratios=[8, 4, 2], T = 4, pretrained_cfg= None
+                 depths=8, sr_ratios=1, T = 4, pretrained_cfg= None
                  ):
         super().__init__()
         self.num_classes = num_classes
@@ -248,21 +248,25 @@ class vit_snn(nn.Module):
 
 @register_model
 def Spikingformer(pretrained=False, **kwargs):
-    model = vit_snn(
-        **kwargs
-    )
-    model.default_cfg = _cfg()
+    # 兼容 timm 传入的附加配置键
+    # 过滤 vit_snn 未接收的键
+    for k in ['pretrained_cfg_overlay', 'cache_dir', 'features_only', 'out_indices', 'global_pool', 'scriptable', 'exportable', 'fused']:
+        kwargs.pop(k, None)
+    if 'in_chans' in kwargs and 'in_channels' not in kwargs:
+        kwargs['in_channels'] = kwargs.pop('in_chans')
+    model = vit_snn(**kwargs)
+    model.default_cfg = _cfg(num_classes=200, input_size=(3, 64, 64), crop_pct=1.0)
     return model
 
 from timm.models import create_model
 
 if __name__ == '__main__':
-    x = torch.randn(2, 3, 224, 224).cuda()
+    x = torch.randn(2, 3, 64, 64).cuda()
     model = create_model(
         'Spikingformer',
-        img_size_h=224, img_size_w=224,
-        patch_size=16, embed_dims=512, num_heads=8, mlp_ratios=4,
-        in_channels=3, num_classes=1000, qkv_bias=False,
+        img_size_h=64, img_size_w=64,
+        patch_size=4, embed_dims=256, num_heads=4, mlp_ratios=4,
+        in_channels=3, num_classes=200, qkv_bias=False,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=8, sr_ratios=1,
         T = 4
     ).cuda()

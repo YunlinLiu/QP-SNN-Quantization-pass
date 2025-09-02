@@ -11,8 +11,9 @@ from chop.passes.module.transforms import quantize_module_transform_pass
 # Add project root to import pure_vgg model
 project_root = Path(__file__).resolve().parents[7]
 sys.path.append(str(project_root))  # For models.layers import in pure_vgg
-sys.path.append(str(project_root / "models"))  # For pure_vgg import
+sys.path.append(str(project_root / "models"))  # For pure_vgg / pure_vggsnn import
 from pure_vgg import vgg_16_bn
+from pure_vggsnn import vggsnn
 
 vgg = vgg_16_bn(compress_rate=[0.0] * 16, num_classes=10)
 for param in vgg.parameters():
@@ -54,3 +55,21 @@ print(mg_rescaw)
 #     # Add SNN conversion rules here if needed
 # }
 # mg, _ = ann2snn_module_transform_pass(mg, convert_pass_args)
+# ----- VGGSNN (DVS-CIFAR10) with ReScaW quantization -----
+vggs = vggsnn(compress_rate=[0.0] * 8, num_classes=10)
+for param in vggs.parameters():
+    param.requires_grad = True  # QAT training
+
+ReScaW_quan_pass_args_vggsnn = {
+    "by": "regex_name",
+    # Quantize all Conv2d layers except the first one (convbn0)
+    r"features\.convbn(?!0\b)\d+\.layer\.module": {
+        "config": {
+            "name": "rescaw",
+            "num_bits": 8,
+        }
+    },
+}
+
+mg_rescaw_vggsnn, _ = quantize_module_transform_pass(vggs, ReScaW_quan_pass_args_vggsnn)
+print(mg_rescaw_vggsnn)

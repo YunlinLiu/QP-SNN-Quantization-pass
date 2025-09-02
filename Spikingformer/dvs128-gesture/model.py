@@ -188,7 +188,7 @@ class vit_snn(nn.Module):
                  img_size_h=128, img_size_w=128, patch_size=16, in_channels=2, num_classes=11,
                  embed_dims=[64, 128, 256], num_heads=[1, 2, 4], mlp_ratios=[4, 4, 4], qkv_bias=False, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
-                 depths=[6, 8, 6], sr_ratios=[8, 4, 2], T=4, pretrained_cfg=None,
+                 depths=[6, 8, 6], sr_ratios=[8, 4, 2], T=4, pretrained_cfg=None, **kwargs,
                  ):
         super().__init__()
         self.num_classes = num_classes
@@ -244,7 +244,7 @@ class vit_snn(nn.Module):
 def Spikingformer(pretrained=False, **kwargs):
     model = vit_snn(
         patch_size=16, embed_dims=256, num_heads=16, mlp_ratios=4,
-        in_channels=2, num_classes=11, qkv_bias=False,
+        in_channels=2, qkv_bias=False,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=2, sr_ratios=1,
         **kwargs
     )
