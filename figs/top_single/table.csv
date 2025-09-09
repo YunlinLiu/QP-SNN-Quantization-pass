@@ -1,0 +1,40 @@
+Dataset,Method,Architecture,Size (MB),Bit~Width,Timestep,Accuracy
+CIFAR-10,Full-Precision SNN,VGG16,58.9,32w-32u,4,93.63%
+,,Spiking-ResNet-20,68.4,32w-32u,2,96.36%
+,,Spikingformer-4-384,37.31,32w-32u,4,95.61%
+,QP-SNN,VGG16,3.58 7.09 14.10,2w-32u 4w-32u 8w-32u,4,92.05% 92.34% 92.42%
+,,Spiking-ResNet-20,4.33 8.59 17.10,2w-32u 4w-32u 8w-32u,2,95.46% 95.81% 95.52%
+,,Spikingformer-4-384,10.76 12.53 16.07,2w-32u 4w-32u 8w-32u,4,95.31% 95.42% 95.50%
+,Q-SNN,VGG16,1.9,1w-2u 1w-4u 1w-8u,4,92.31% 92.42% 92.51%
+,,Spiking-ResNet-20,2.23,1w-2u 1w-4u 1w-8u,2,95.64% 95.73% 95.86%
+,,Spikingformer-4-384,9.87,1w-2u 1w-4u 1w-8u,4,93.90% 94.16% 94.27%
+CIFAR-100,Full-Precision SNN,VGG16,59.1,32w-32u,4,69.67%
+,,Spiking-ResNet-20,68.38,32w-32u,2,79.52%
+,,Spikingformer-4-384,37.31,32w-32u,4,79.09%
+,QP-SNN,VGG16,3.94 7.62 14.97,2w-32u 4w-32u 8w-32u,4,65.50% 65.91% 66.74%
+,,Spiking-ResNet-20,4.51 8.77 17.29,2w-32u 4w-32u 8w-32u,2,76.22% 76.86% 76.38%
+,,Spikingformer-4-384,10.76 12.53 16.07,2w-32u 4w-32u 8w-32u,4,78.70% 78.82% 78.77%
+,Q-SNN,VGG16,1.94,1w-2u 1w-4u 1w-8u,4,65.80% 66.69% 67.51%
+,,Spiking-ResNet-20,2.23,1w-2u 1w-4u 1w-8u,2,78.51% 78.71% 78.60%
+,,Spikingformer-4-384,9.9,1w-2u 1w-4u 1w-8u,4,77.53% 77.90% 78.14%
+ImageNet,Full-Precision SNN,VGG16,60.94,32w-32u,4,56.77%
+,,Spiking-ResNet-20,70.23,32w-32u,2,61.80%
+,,Spikingformer-8-256,29.52,32w-32u,4,72.91%
+,QP-SNN,VGG16,5.79 9.46 16.82,2w-32u 4w-32u 8w-32u,4,55.04% 55.20% 55.70%
+,,Spiking-ResNet-20,6.36 10.62 19.13,2w-32u 4w-32u 8w-32u,2,59.15% 59.90% 59.72%
+,,Spikingformer-8-256,5.92 7.50 10.64,2w-32u 4w-32u 8w-32u,4,69.56% 69.93% 70.85%
+,Q-SNN,VGG16,2.41,1w-2u 1w-4u 1w-8u,4,51.90% 53.11% 54.62%
+,,Spiking-ResNet-20,2.69,1w-2u 1w-4u 1w-8u,2,58.36% 58.88% 59.40%
+,,Spikingformer-8-256,1.41,1w-2u 1w-4u 1w-8u,4,68.85% 69.50% 71.30%
+DVS-Gesture,Full-Precision SNN,VGGSNN,37.1,32w-32u,16,97.83%
+,,Spikingformer-2-256,10.27,32w-32u,16,98.30%
+,QP-SNN,VGGSNN,2.54 4.85 9.46,2w-32u 4w-32u 8w-32u,16,96.53% 97.57% 97.30%
+,,Spikingformer-2-256,4.38 4.77 5.56,2w-32u 4w-32u 8w-32u,16,97.66% 97.80% 98.11%
+,Q-SNN,VGGSNN,1.39,1w-2u 1w-4u 1w-8u,16,96.65% 97.20% 97.34%
+,,Spikingformer-2-256,4.29,1w-2u 1w-4u 1w-8u,16,97.54% 97.61% 97.91%
+DVS-CIFAR10,Full-Precision SNN,VGGSNN,37.09,32w-32u,10,81.90%
+,,Spikingformer-2-256,10.27,32w-32u,10,79.90%
+,QP-SNN,VGGSNN,2.53 4.83 9.44,2w-32u 4w-32u 8w-32u,10,80.50% 80.90% 81.50%
+,,Spikingformer-2-256,4.38 4.77 5.56,2w-32u 4w-32u 8w-32u,10,79.90% 81.40% 79.70%
+,Q-SNN,VGGSNN,1.37,1w-2u 1w-4u 1w-8u,10,80.09% 81.50% 81.60%
+,,Spikingformer-2-256,4.29,1w-2u 1w-4u 1w-8u,10,- -% 73.50% 79.10%

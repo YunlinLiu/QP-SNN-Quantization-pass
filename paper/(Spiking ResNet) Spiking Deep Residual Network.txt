@@ -1,0 +1,724 @@
+Spiking Deep Residual Network
+Yangfan Hu
+Zhejiang University
+huyangfan@zju.edu.cn
+Huajin Tang
+Zhejiang University
+htang@zju.edu.cn
+Gang Pan
+Zhejiang University
+gpan@zju.edu.cn
+Abstract
+Spiking neural networks (SNNs) have received significant attention for their biolog ical plausibility. SNNs theoretically have at least the same computational power as
+traditional artificial neural networks (ANNs). They possess potential of achieving
+energy-efficiency while keeping comparable performance to deep neural networks
+(DNNs). However, it is still a big challenge to train a very deep SNN. In this paper,
+we propose an efficient approach to build a spiking version of deep residual net work (ResNet). ResNet is considered as a kind of the state-of-the-art convolutional
+neural networks (CNNs). We employ the idea of converting a trained ResNet to
+a network of spiking neurons, named Spiking ResNet (S-ResNet). We propose
+a shortcut conversion model to appropriately scale continuous-valued activations
+to match firing rates in SNN, and a compensation mechanism to reduce the error
+caused by discretisation. Experimental results demonstrate that, compared with the
+state-of-the-art SNN approaches, the proposed Spiking ResNet achieves the best
+performance on CIFAR-10, CIFAR-100, and ImageNet 2012. Our work is the first
+time to build a SNN deeper than 40, with comparable performance to ANNs on a
+large-scale dataset.
+1 Introduction
+S
+PIKING neural network (SNN) is considered as a promising approach to build an intelligent
+machine as efficient as the human brain. Compared with conventional ANN, SNN is more
+biologically realistic and its neurons communicate with each other via discrete events (spikes) instead
+of continuous-valued activations. Theoretically, SNN can approximate any function as ANN [1].
+Such system is updated asynchronously as event arrives, thus reduces number of operations required
+at each time step. Recent developments show that SNNs can be emulated by neuromorphic hardware
+such as TrueNorth [2], SpiNNaker [3] and ROLLS [4] with several orders of magnitude less energy
+consumption than that by contemporary computing hardware. Furthermore, SNNs are inherently
+suitable for processing data from emerging AER-based (address-event-representation) sensors that
+have low redundancy, low latency and high dynamic range, such as dynamic vision sensor (DVS) [5].
+Visual systems [6, 7] constructed with SNN, DVS and neuromorphic processors have demonstrated
+their capacity in solving visual tasks as well as prominent energy-efficiency.
+At current stage, how to train a SNN remains an open challenge due to the discontinuity of its spiking
+mechanism. Many efforts have been made to solve this problem. These methods can be categorised
+into four classes. The first class seeks to make SNN differentiable with some approximations and apply
+gradient descent. The second class takes inspiration from biological neurons and utilises synaptic
+plasticity rules. The third class views SNN as a stochastic process and learns with probabilistic
+inference. However, the three kinds of approaches are not yet well-developed and cannot deal with
+deep architectures. The last kind of approaches employ the idea of conversion to narrow the gap of
+performance between SNN and ANN. It trains a conventional ANN and builds a conversion algorithm
+to map the weights to an equivalent SNN. Although this approach can build deeper SNNs than the
+first three approaches, it is still a big challenge to build a large-scale SNN, for the performance after
+conversion will drop rapidly when the network architecture goes deeper, e.g. more than 30 layers.
+In this paper, we investigate the learning of deep SNN by converting residual network [8], a cutting edge CNN architecture that allows a network to go extremely deep and has achieved great success
+arXiv:1805.01352v2 [cs.NE] 3 Jun 2020
+in many applications, to its spiking equivalent. Previous conversion methods are not applicable
+to residual network for the structural difference between residual structure and conventional linear
+structure. We design a shortcut conversion model to jointly normalise synaptic weights in spiking
+residual network. Furthermore, we find that accumulating propagation error is critical to obstruct
+the loss-less conversion of large-scale network and develop an effective method to compensate
+propagation error by slightly saturating firing rates of neurons and forcing neurons at deeper layers to
+response more quickly. Our method achieves the state-of-the-art performance with MNIST, CIFAR-
+10, CIFAR-100 and ImageNet. The preliminary work of this paper was released on the arxiv 2018,
+April 28 [9].
+2 Related Work
+In SNN, information is propagated by discrete events, i.e., spikes. Therefore, the indifferentiability
+makes classic learning methods for ANN, such as backpropagation and its variants, incompatible with
+SNN. A couple of learning algorithms have been proposed to build SNN, which can be categorised as
+follows:
+1. Gradient descent based algorithms. This approach aims to overcome non-linearity in SNN and
+apply gradient descent optimisation algorithms. Early work goes back to Spikeprop [10], which
+implemented backpropagation in SNN by assuming the potential function to be differentiable for a
+small region around firing time. In a way similar to backpropagation, tempotron learning rule [11]
+was derived from a cost function defined by membrane potential and spike timing. More recently,
+direct training of SNN with stochastic gradient descent (SGD) was demonstrated in [12, 13, 14, 15,
+16, 17, 18].
+2. Learning with synaptic plasticity rules. This approach utilises synaptic plasticity rules such as
+spike-timing-dependent plasticity (STDP) [19]. Evidenced by plentiful neurophysiological data,
+STDP has attracted the interest of many researchers. In [20, 21], STDP has been proven able to
+select visual features in an unsupervised manner. Stable learning over time was exhibited in [22] with
+STDP rules, lateral inhibition and homoeostasis employed. In [23], event-driven continuous STDP
+was proposed to recognise patterns from time-coded spike train. Rathi et al. [24] demonstrated the
+efficiency in energy and area with a pruned SNN and self-taught STDP learning rule.
+3. Statistical algorithms. Although most algorithms treat SNN as a deterministic system, evidence
+suggests that neural network in brain resembles stochastic machine [25]. In [26], noise and uncertainty
+are considered as beneficial factors that facilitate statistical learning and self-organisation in SNN.
+In [27], a SNN has been shown to perform Bayesian inference, coinciding with the suggestion that
+Bayesian inference is prevalent in cognition behaviours. In [28], a network model with stochastic
+synapses was presented for Monte Carlo sampling and unsupervised learning.
+4. Conversion methods. The study of converting a pre-trained ANN to its equivalent SNN began
+as Perez-Carrasco et al. [29] introduced an approach to obtain the weights of SNN by scaling the
+weights of its CNN counterpart in accordance with the parameters of Leaky Integrate-and-Fire (LIF)
+[30] spiking neuron.
+One kind of conversion algorithms builds the mapping between ANN and SNN by fiddling the
+activation function/artificial neuron to approximate the average firing rate of spiking neurons. Methods
+in this category include training and mapping with Siegert neuron [31], SoftLIF function [32], noisy
+softplus function [33], complementary cumulative distribution function of Gaussian distribution [34].
+These methods require training with less common activation functions and are not well compatible
+with state-of-the-art ANN architectures.
+The other kind of conversion algorithms takes the advantage of the non-negativity of ReLU activation
+to approximate average firing rate. It was first introduced by Cao et al. in [35]. Following work
+introduced methods such as data-based normalisation [36] and dynamic threshold balancing [37] to
+improve the performance after conversion.
+In [38, 39], spiking versions of common ANN operations were introduced to convert modern ANN
+architectures and pre-trained ANN models. Hardware implementation was demonstrated by Esser et
+al. [40] with TrueNorth chip.
+2
+Although many SNN learning approaches have been presented, it is still very challenging to build a
+SNN with a large-scale deep architecture for obtaining high accuracy.
+3 Building Spiking ResNet
+The deep residual network (ResNet) is a variant of convolutional neural networks (CNNs) for the
+degradation problem of deep networks and has been widely used. Starting from the insight that a deep
+network constructed by adding identity mapping layers will not perform worse than original shallow
+network, He et al. [8] let the stacked nonlinear layers approximate the mapping of F(x) := H(x)−x,
+where H(x) is the desired underlying mapping. Then the original mapping becomes a residual
+mapping: H(x) = F(x) + x. They hypothesised that residual mapping is easier to be optimised with
+current solvers and verified their hypothesis with empirical evidence. For the powerful capability of
+ResNet, this paper develops an effective conversion approach to build Spiking ResNets from trained
+ResNets.
+3.1 Spiking ResNet: An Overview
+In a word, conversion shapes an ANN into its biologically plausible counterpart, i.e., the SNN.
+Differences between ANN and SNN make the conversion not an easy task. Within an ANN, a neuron
+receives real-valued inputs from its previous neurons while a neuron within a SNN receives spike
+trains (series of spikes) as inputs from its previous neurons. Furthermore, neurons in an ANN process
+information by applying activation function to the summed inputs, whereas neurons in a SNN process
+information by integrating incoming spikes. Each incoming spike will induce a change to a neuron’s
+postsynaptic potential (PSP). When PSP reaches certain threshold, the neuron fires a spike and passes
+information on to its next neurons.
+The conversion of networks comprised of two different types of neurons is based on the postulation
+that activation in ANN approximates firing rate of spiking neuron. Under this postulation, we map
+ANN to SNN by replacing artificial neuron with spiking neuron and creating synaptic connections
+between neurons. In Figure 1, we illustrate the architectural overview of the whole process. The
+activation function, ReLU layer, is replaced with integrate-and-fire (IF) neuron. Sum layer is no
+longer needed since IF neuron implicitly implements addition during the integration of spikes.
+Convolution layer is replaced with a layer of synaptic connections that resembles convolutional
+operation. Weights of convolution layer are mapped to corresponding synapse layer and biases are
+converted to constant current injected to spiking neurons [39]. Similarly, pooling and fully-connection
+are replaced by synapses that resemble these operations. For average pooling, synaptic weights are
+fixed to 1/P oolSize2
+. For max pooling, we use logical comparison to select spikes only from neuron
+with highest firing rate and inhibit other incoming spikes by setting synaptic weights to zero. An
+extra layer of IF neuron is added after pooling layer or fully-connected layer to integrate spikes
+from these types of synaptic connections. Since training is already finished before conversion, batch
+normalisation is directly applied to shape the convolution layer that precedes batch normalisation
+layer. Weights and biases in convolution layer are scaled to
+Wf =
+γW
+σ
+, e b =
+γ(b − µ)
+σ
++ β, (1)
+where µ is the mean, σ is the variance, β and γ are two learnable parameters [41].
+Before we map weights in ANN to SNN, we must note that activations of ANN can be any positive
+real number as we employed ReLU function during training. Meanwhile, firing rate of spiking neuron
+is fixed in a region [0, rmax], where rmax is the max firing rate as a biological neuron can fire no
+more than one spike within a brief interval (a single time step). For simplicity, we suppose neurons
+can fire as much as they could, i.e., firing a spike at each time step. In order to have activations in
+ANN matching firing rate in SNN (both in a region of [0, 1]), weights and biases in ANN are jointly
+normalised by
+W =
+λ
+l−1
+λl W, b =
+1
+λl
+b, (2)
+where λ
+l
+is the max 99.9% or 99.99% activation at layer l instead of the actual max activation as
+using the actual max activation is more prone to be susceptible to outliers [39].
+3
+Conv
+pooling
+fc
+Conv
+IF
+Conv
+IF
+IF
+IF
+Conv
+pooling
+fc
+Conv
+BN
+ReLU
+Sum
+Conv
+BN
+ReLU
+softmax
+BN
+ReLU
+IF
+ResNet
+Spike
+Count
+Scale
+Conversion Spiking ResNet
+Apply BatchNorm
+Apply BatchNorm
+Apply BatchNorm
+Normalisation
+Compensation
+Normalisation
+Compensation
+Normalisation
+Compensation
+Normalisation
+Compensation
+Designation
+Figure 1: Architectural overview of our conversion approach
+3.2 Conversion Model of Residual Network
+Different from linear structures employed in previous methods, the topology of residual network is a
+directed acyclic graph. This makes normalisation methods in previous literature incompatible. When
+we convert residual network to its spiking version, new synaptic weights are introduced in shortcuts
+as SNN creates synaptic connections between any two neighboured layers of neurons. Although
+the original weights in shortcuts are set to 1 to perform identity mapping, those weights should also
+be scaled accordingly as weights in convolutional synapses being normalised. Otherwise, if we
+normalise stacked layers only, i.e., convolutional synapses, firing rates of spiking neurons would
+notably deviate from their corresponding activations. In Figure 2, we demonstrated an example of
+mismatch between firing rates and activations with the shortcuts unnormalised.
+4
+Figure 2: Illustrations of feature maps of each residual block in ResNet-44 with an example input
+from CIFAR-10. The first row presents feature maps of original ANN. Second row presents feature
+maps of spiking ResNet-44 without its shortcuts normalised. Third row presents feature maps of
+spiking ResNet-44 with its shortcuts normalised.
+Sail
+𝑋 𝑋
+𝑊2
+𝑊1 𝒴
+Sail
+𝑋 
+𝑊2
+𝑊1 𝒴𝑛𝑜𝑟𝑚 𝑋 
+λ
+a) Basic Residual Block b) Converted Model
+Figure 3: Conversion model for a shortcut block
+To derive a good conversion model to scale shortcut, we consider the case of a basic residual block
+in ResNet, shown in Figure 3 (a). Let maxin, maxint, maxout denote max activations in input X,
+intermediate ReLU unit, output ReLU unit, respectively. W1, b1, W2, b2 are weights and biases in
+two weight layers. The original output of a basic residual block is determined by following equation:
+y = W2(W1X + b1) + b2 + X (3)
+Then we let activations in ResNet match the range of firing rates in S-ResNet as spiking neurons are
+not allowed to fire multiple spikes at one time step. Otherwise, information carried by high activation
+values will be lost during the conversion. For the stacked layers, weights and biases at each layer are
+normalised by the maximum possible activation that is calculated from the training set. This leads
+to new weights, biases in the residual block and new input as well due to the change of weight in
+previous layers:
+X =
+1
+maxin
+X, W1 =
+maxin
+maxint
+W1, b1 =
+1
+maxint
+b1,
+W2 =
+maxint
+maxout
+W2, b2 =
+1
+maxout
+b2.
+(4)
+With new weights, biases and input, the output of the block is updated to
+y
+0 = W2(W1X + b1) + b2 + X
+=
+W2(W1x + b1) + b2
+maxout
++
+1
+maxin
+X
+(5)
+However, in accordance to the basic idea of normalisation, no matter how the weights, biases or input
+change, the normalised output of one layer must always be the original activation normalised by its
+maximum possible activation:
+ynorm =
+y
+maxout
+=
+W2(W1X + b1) + b2 + X
+maxout
+(6)
+By comparing Eq.(6) with Eq.(5), we find out that the last term in Eq.(5), i.e., the shortcut connection
+should be scaled with a factor λ (Figure 3 (b)), where λ =
+maxin
+maxout
+. Therefore, in spiking residual
+network, synaptic weights in shortcut should be scaled to maxin
+maxout
+.
+5
+3.3 Compensation of Propagation Error
+The conversion method discussed in this paper is based on the one-to-one correspondence between
+artificial neuron and spiking neuron: the normalised activation of ReLU is approximated by the firing
+rate of spiking neuron. For an artificial neuron i, its ReLU activation is computed as:
+ai =
+Ξ
+X
+j=1
+Wijaj + bi
+, (7)
+where ai ∈ [0, 1], Ξ is the set of all neurons feed their outputs to neuron i, neuron j ∈ Ξ, W is weight
+and b is bias.
+After conversion, weights and biases of artificial neurons are directly mapped to IF neurons that resets
+its membrane potential by subtraction (neuron model used in this paper). If the intervals between
+spikes are larger than the refractory period, Ni(t), i.e., the number of spikes neuron i has fired from
+the start of simulation to time step t satisfies
+Ni (t) =
+Ξ
+P
+j=1
+WijNj (t) + bit − Vi (t)
+θ
+, (8)
+where θ is the firing threshold, Vi (t) is the membrane potential at the time t and Ξ is the set of
+neurons connected to neuron i through pre-synaptic connections. For simplicity, we set θ to 1. The
+average firing rate of neuron i is determined by:
+ri (t) = Ni (t)
+t
+=
+Ξ
+X
+j=1
+Wij rj (t) + bi −
+Vi
+t
+(t)
+(9)
+As is seen from the difference between Eq.(7) and Eq.(9), the approximation of ReLU activation
+incurs an amount of deviation at each neuron by the last term in Eq.(9), i.e., the membrane potential
+that is not yet integrated as spikes. Here, we define the amount of deviation Vi (t)
+t
+as propagation
+error Ei(t). To explicitly determine the relation between ReLU activation and firing rate, we expand
+the recursive Eq. 9 iteratively with the firing rates of each pre-synaptic neuron:
+ri (t) =ai −
+( Ei (t) +
+Ξ
+X
+j=1
+WijEj (t)
++
+Θ
+X
+j=1
+Wij
+Θ1 X
+j1=1
+Wjj1
+. . .
+Ξk X
+jk=1
+Wjk−1jk Ejk
+(t)
++
+Θ
+X
+j=1
+Wij . . .
+Θk X
+jk=1
+Wjk−1jk
+. . .
+Ξn X
+jn=1
+Wj
+2
+n−1jn Ejn
+(t)
+)
+(10)
+We let Ω denote the set of spiking neurons that directly receive input impulses. Θ denotes the set
+of neurons in Ξ but not in Ω (Θ ⊆ Ξ, Θ ∩ Ω = ∅). Ξk denotes the set of neurons connected to
+neurons in Θk−1 and we have Ξn ⊆ Ω, i.e., Θn = ∅. From Eq.10, we know that the propagation
+error accumulates as information propagates from pre-synaptic neurons to post-synaptic neurons. Let
+Ei denote the collection of all accumulated propagation errors in Eq. 10 (terms within the braces). If
+a SNN is constructed with a stack of feed-forward layers, Eq.10 indicates that Ei grows as network
+goes deep. In this case, propagation error is a major factor that obstructs the building of large-scale
+spiking network as firing rates ri (t) at deep layers no longer approximate ReLU activations:
+ri (t) = ai − Ei (11)
+Intuitively, we can enlarge the firing rates to match the ReLU activation if we know exactly the total
+amount of propagation error Ei (Eq. 11). However, it is very difficult to solve this problem for its
+complexity and non-determinacy.
+6
+0 10 20 30 40 50 60
+0
+0.02
+0.04
+0.06
+0.08
+0.1
+0.12
+0.14
+0.16
+0.18
+0.2
+l
+S−ResNet−20
+S−ResNet−32
+S−ResNet−44
+S−ResNet−56
+(a) CIFAR-10 with S-ResNets of depth 20, 32, 44, 56
+0 10 20 30 40 50
+0
+0.05
+0.1
+0.15
+0.2
+0.25
+l
+S−ResNet−18
+S−ResNet−34
+S−ResNet−50
+(b) ImageNet with S-ResNets of depth 18, 34, 50
+Figure 4: Growth of Ei on CIFAR-10 and ImageNet
+Table 1: Parameters and Goodness of Fit
+Dataset Depth p q Adj.R2
+CIFAR-10
+20 0.001168 1.270 0.9562
+32 0.002853 1.131 0.9717
+44 0.005269 1.081 0.9753
+56 0.007478 1.059 0.9602
+ImageNet
+18 0.002418 1.273 0.9498
+34 0.040488 1.113 0.9192
+50 0.006339 1.073 0.6598
+Based on our experimental observation, a certain pattern exists in the growth of Ei with respect to
+network depth. Figure 4 shows how Ei of max firing neuron at each layer changes as S-ResNet goes
+deeper. The data is collected after a simulation of 350 time steps and averaged across 50,000 training
+samples in CIFAR-10 and 50,000 validation samples in ImageNet, respectively. We try to simplify the
+problem by building an approximation model of Ei
+. We assume that accumulated propagation error
+Ei
+is dependent upon network depth and establish a regression model to describe their relationship:
+Ei = p · q
+l
+, (12)
+where l is the network depth, p and q are two constants. Fitting parameters and goodness of fit are
+presented in Table 1, indicating that our model is faithful for most cases.
+7
+E E
+With the established model of Ei
+, we adjust the weights of neurons to let them accordingly overfire
+a little bit to counterbalance the growth of propagation error. This reduces the problem to the
+minimisation of the E (summation of each neuron’s Ei):
+argmin
+Wi
+Φ
+X
+i=1
+Ei(Wi
+, l, t) (13)
+Φ is the set of all neurons in SNN. Considering the exponential model of Ei
+, we use a simple weight
+update rule to reduce the number of parameters instead of fiddling each layer’s weights:
+W0 = W · ζ, (14)
+where ζ is the compensation factor. With a subset of training data, ζ is searched step-wisely around q,
+bounded by region (1, τmax), where τmax is the reciprocal of max firing rate at the last layer.
+4 Experiment
+For evaluation, we conducted experiments on four publicly available datasets: MNIST [42], CIFAR-
+10, CIFAR-100 [43] and ImageNet 2012 [44]. We employed residual networks with the same
+architectures as those defined in [8]. All experiments were conducted with deep learning library
+MatConvNet [45].
+4.1 Experiment on Shortcut Model
+Table 2: Error rates of S-ResNets with or without shortcut model on
+CIFAR-10
+Depth ResNet
+S-ResNet
+without shortcut
+model
+with shortcut
+model
+err. (acc. loss) err. (acc. loss)
+20 8.01% 10.55% 2.54% 8.21% 0.20%
+32 7.34% 14.62% 7.28% 8.30% 0.96%
+44 7.15% 15.44% 8.29% 8.02% 0.87%
+56 7.01% 16.67% 9.66% 8.36% 1.35%
+110 6.53% 20.77% 14.24% 12.18% 5.65%
+Shortcut conversion model was tested with CIFAR-10. In CIFAR-10, there are 50,000 training images
+and 10,000 testing images, which belong to 10 classes. The residual networks were trained with the
+standard stochastic gradient descent (SGD) with a momentum of 0.9. Training data is augmented
+by padding 4 pixels on each side of the image and randomly sampled from the padded image or its
+horizontal flip with a 32 × 32 crop [8]. After training, we apply our approach to build the spiking
+residual network. Normalisation factors are obtained by surveying activations from the whole training
+set.
+We trained the residual networks of depth 20, 32, 44, 56, 110 and build their spiking counterparts
+with or without shortcut normalisation applied. The results are summarised in Table 2. Across all
+depths, SNNs with their shortcuts normalised achieved much lower error rates than those without
+shortcut normalisation. At depth 20, 32, 44, conversion with shortcut normalisation notably achieved
+less than 1% loss of classification error rates, with only 1.35% error loss for the depth 56. Note that
+the error compensation has not been applied yet.
+4.2 Experiment on Error Compensation
+To assess effectiveness of the error compensation, we applied error compensation to both residual
+networks and classical convolutional neural networks. The classical convolutional network, called
+"plain CNN", is a stack of convolutional layers without shortcut connections, which we implemented
+it as a VGG-like network [46] whose depth is exactly the same as its residual counterpart.
+8
+On CIFAR-10, networks were trained under the same protocol described in Section 4.1. Experimental
+results shown in Table 3 demonstrate that error compensation consistently improve the performance
+and reduce the propagation error of both the ResNet and plain CNN over all depth settings (prop agation error E in Table 3 and 4 is averaged by total number of neurons within network). The
+improvements are more obvious in deeper network as deeper network incurs greater propagation
+error. We also note that improvements on plain CNN are much higher than those on residual network,
+which indicates that conversion process induces more errors in plain network than in residual network.
+This suggests that difference in network architecture affects the growth rate of propagation error and
+has critical impact on the final performance of converted SNNs.
+Table 3: Experimental results (error rates) with compensation on
+CIFAR-10
+Depth Plain CNN
+CNN S-CNN E
+S-CNN
+(comp.) E
+20 9.30% 11.26% 0.006068 10.60% 0.005076
+32 10.15% 15.82% 0.009681 13.88% 0.007916
+44 10.48% 38.64% 0.014039 30.88% 0.011564
+56 12.47% 53.28% 0.015086 41.49% 0.011438
+Depth Residual Network
+ResNet S-ResNet E
+S-ResNet
+(comp.) E
+20 8.01% 8.21% 0.004226 8.18% 0.004068
+34 7.34% 8.30% 0.005383 7.96% 0.004772
+44 7.15% 8.02% 0.006351 7.63% 0.005476
+56 7.01% 8.36% 0.007927 7.67% 0.006599
+Table 4: Experimental results (error rates) on ImageNet
+Depth ResNet S-ResNet S-ResNet (comp.)
+Top1-Error Top1-Error (acc. loss) E Top-1 Error (acc. loss) E
+18 30.79% 31.65% 0.86% 0.002545 31.64% 0.84% 0.002481
+34 27.12% 28.49% 1.37% 0.003657 28.39% 1.27% 0.003253
+50 24.55% 27.69% 3.13% 0.004883 27.25% 2.69% 0.004438
+Top-5 Error Top-5 Error (acc. loss) Top-5 Error (acc. loss)
+18 11.33% 11.76% 0.42% 11.73% 0.39%
+34 9.20% 9.86% 0.66% 9.78% 0.58%
+50 7.50% 9.34% 1.84% 9.03% 1.52%
+Furthermore, we evaluate the proposed S-ResNet with ImageNet 2012 dataset [44]. The dataset
+comprises 1.2 million training images, 50,000 validation images and 100,000 test images. Residual
+networks used here are directly adopted from [47]. The spiking residual network is then validated
+on whole validation set of 50,000 images. Each image is resized to 224 by its short edge and then
+cropped into its 224 × 224 centre patch. Table 4 summarises the results. Our approach achieved the
+top-1 error rate of 27.25% (at the depth 50, with the error loss of 2.69%) and the top-5 error rate
+of 9.03% (at the depth 50, with the error loss of 1.52%). Both of them are the best performance
+on ImageNet 2012, compared with the reported in the literature. The results demonstrate that error
+compensation consistently improves the performance of both top-1 and top5 error rates at different
+depths.
+4.3 Comparison with Other Deep SNNs
+In Table 5, we present a summary of our results achieved on MNIST, CIFAR-10, CIFAR-100,
+ImageNet along with comparison with the performance of other deep SNNs. By and large, our
+approaches allow us to achieve better performance with deeper networks than state-of-the-art SNNs.
+On MNIST, we achieved loss-less performance with a relative shallow network (depth of 8). On
+CIFAR-10 we achieved an error rate of 7.63% with Spiking ResNet-44 (only error loss of 0.48%),
+and obviously outperformed the other SNN methods, for example, those in [32, 35, 37, 39, 40]
+9
+Table 5: Comparison with other conversion methods on MINIST, CIFAR-10, CIFAR100 and
+ImageNet.
+Dataset Depth ANN Converted SNN Increment
+MNIST[36] 3 0.86% 0.88% 0.02%
+MNIST[39] 4 0.56% 0.56% 0%
+MNIST(ours) 8 0.41% 0.41% 0%
+CIFAR-10[35] 5 20.88% 22.57% 1.69%
+CIFAR-10[32] 5 14.03% 16.46% 2.43%
+CIFAR-10[40] 16 N/A 10.68% N/A
+CIFAR-10[39] 9 8.09% 9.15% 1.06%
+CIFAR-10-VGG [37] 16 8.3% 8.45% 0.15%
+CIFAR-10-ResNet [37] 20 10.9% 12.54% 1.64%
+CIFAR-10(ours) 44 7.15% 7.63% 0.48%
+CIFAR-100[40] 16 N/A 34.52% N/A
+CIFAR-100(ours) 44 29.82% 31.44% 1.62%
+ImageNet-VGG [37] 16 29.48 % (10.61%) 30.04 % (10.99%) 0.56% (0.38%)
+ImageNet-ResNet [37] 34 29.31% (10.31%) 34.53% (13.67%) 5.22% (3.36%)
+ImageNet (ours) 34 27.12% (9.20%) 28.39% (9.78%) 1.27% (0.58%)
+ImageNet (ours) 50 24.55% (7.50%) 27.25% (9.03%) 2.7% (1.53%)
+a
+top-5 errors on ImageNet are included within the round brackets
+On CIFAR-100, we performed exactly the same protocol as we did on CIFAR-10, yielding an error
+rate of 31.44% with Spiking ResNet-44, the state of the art performance. On ImageNet, we achieved
+27.25% top-1 error, defeated the SNN approaches in the literature. Overall, the proposed Spiking
+ResNet achieves the best performance on CIFAR-10, CIFAR-100 and ImageNet 2012, compared
+with the state-of-the-art SNN approaches. It is the first time to build a SNN deeper than 40 on a
+large-scale dataset while keeping comparable performance to ANN.
+4.4 Analysis of Energy Consumption
+SNN’s potential to achieve revolutionary energy-efficiency with emerging neuromorphic hardware is
+one of its advantages over traditional computing platform. We estimate power consumption for both
+ResNet and S-ResNet, assuming that they are run on their advanced hardware. For ResNet, we employ
+FPGA of Intel Stratix 10 TX [48] for estimation. Intel Stratix 10 TX was fabricated using 14nm
+technology and released in 2018. It is considered as one of the most powerful and energy-efficient
+platforms to date among ready-made FPGAs. Its power efficiency is up to 80 GFLOPS/Watt, i.e., it
+operates at a cost of 12.5pJ per FLOP. For S-ResNet, we employ the neuromorphic chip of ROLLS
+[4] for estimation. It was fabricated using a 180nm CMOS process in 2015. As reported in reported
+in [49], the ROLLS consumes 77fJ per SOP (synaptic operation [2]).
+The ImageNet dataset is adopted to estimate the amount of energy required to classify one single
+image from the dataset. We first determine the number of operations (FLOP for ResNet and SOP for S ResNet) required for the task and then multiple it with platform’s power efficiency for final result.The
+number of operations goes as follows: 1.82 GFLOP, 3.67 GFLOP, and 4.12 GFLOP respectively for
+ResNet-16, ResNet-34, and ResNet-50. 33.13 GSOP, 65.28 GSOP and 78.29 GSOP respectively for
+S-ResNet-16, S-ResNet-34, and S-ResNet-50. With reference to each platform’s energy efficiency,
+the power consumption of ResNet is more than 9 times greater than energy consumed by S-ResNet
+across all depths. This result has shown us promising future of SNN-based neuromorphic systems as
+the estimated power consumption of SNNs implemented with neuromorphic hardware beats that of
+ANNs implemented with one of the top energy-efficient FPGA platforms by a degree of magnitude.
+Note that the FPGA Intel Stratix 10 TX is manufactured using 14 nm technology while the ROLLS is
+with only 180nm technology, six generations APART from 14nm technology.
+10
+5 Conclusion
+It is still very challenging to build a deep spiking neural networks in the neuromorphic computing
+community. In this paper, we presented an efficient approach for converting a deep residual network
+to its spiking counterpart, which can be finally moved to energy-efficient neuromorphic hardwares.
+The proposed conversion model enables us to improve the performance of SNNs by employing deeper
+structure. Furthermore, we designed a compensation mechanism to reduce the discretisation error
+accumulated by going deeper of a SNN. Compared with the state-of-the-art SNN approaches, our
+proposed Spiking ResNet achieved the best performance on CIFAR-10, CIFAR-100 and ImageNet
+2012. The proposed approach has potential to be extended for other deep ANN architectures.
+References
+[1] W. Maass, “Networks of spiking neurons: the third generation of neural network models,”
+Neural networks, vol. 10, no. 9, pp. 1659–1671, 1997.
+[2] P. A. Merolla, J. V. Arthur, R. Alvarez-Icaza, A. S. Cassidy, J. Sawada, F. Akopyan, B. L.
+Jackson, N. Imam, C. Guo, Y. Nakamura et al., “A million spiking-neuron integrated circuit
+with a scalable communication network and interface,” Science, vol. 345, no. 6197, pp. 668–673,
+2014.
+[3] S. B. Furber, F. Galluppi, S. Temple, and L. A. Plana, “The SpiNNaker project,” Proc. IEEE,
+vol. 102, no. 5, pp. 652–665, 2014.
+[4] Q. Ning, M. Hesham, S. Fabio, and S. Dora, “A reconfigurable on-line learning spiking
+neuromorphic processor comprising 256 neurons and 128k synapses,” Front. Neurosci., vol. 9,
+p. 141, 2015.
+[5] P. Lichtsteiner, C. Posch, and T. Delbruck, “A 128 × 128 120 db 15µ s latency asynchronous
+temporal contrast vision sensor,” IEEE J. Solid-State Circuits, vol. 43, no. 2, pp. 566–576, 2008.
+[6] G. Orchard, C. Meyer, R. Etienne-Cummings, C. Posch, N. Thakor, and R. Benosman, “Hfirst:
+a temporal approach to object recognition,” IEEE Trans. Pattern Anal. Mach. Intell., vol. 37,
+no. 10, pp. 2028–2040, 2015.
+[7] A. Amir, B. Taba, D. J. Berg, T. Melano, J. L. McKinstry, C. Di Nolfo, T. K. Nayak, A. An dreopoulos, G. Garreau, M. Mendoza et al., “A low power, fully event-based gesture recognition
+system.” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit., 2017, pp. 7388–7397.
+[8] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in Proc.
+IEEE Conf. Comput. Vis. Pattern Recognit., 2016, pp. 770–778.
+[9] Y. Hu, H. Tang, Y. Wang, and G. Pan, “Spiking deep residual network,” arXiv preprint
+arXiv:1805.01352, 2018.
+[10] S. M. Bohte, J. N. Kok, and H. La Poutre, “Error-backpropagation in temporally encoded
+networks of spiking neurons,” Neurocomputing, vol. 48, no. 1, pp. 17–37, 2002.
+[11] R. Gütig and H. Sompolinsky, “The tempotron: a neuron that learns spike timing–based
+decisions,” Nature neuroscience, vol. 9, no. 3, p. 420, 2006.
+[12] J. H. Lee, T. Delbruck, and M. Pfeiffer, “Training deep spiking neural networks using backprop agation,” Front. Neurosci., vol. 10, 2016.
+[13] E. O. Neftci, C. Augustine, S. Paul, and G. Detorakis, “Event-driven random back-propagation:
+Enabling neuromorphic deep learning machines,” Front. Neurosci., vol. 11, p. 324, 2017.
+[14] H. Mostafa, “Supervised learning based on temporal coding in spiking neural networks,” IEEE
+Trans. Neural Netw. Learn. Syst., vol. 29, no. 7, pp. 3227–3235, 2018.
+[15] S. B. Shrestha and G. Orchard, “SLAYER: Spike layer error reassignment in time,” in Proc.
+Neural Inf. Process. Syst., 2018, pp. 1412–1421.
+[16] F. Zenke and S. Ganguli, “SuperSpike: Supervised learning in multilayer spiking neural
+networks,” Neural Comput., vol. 30, no. 6, pp. 1514–1541, 2018.
+[17] D. Huh and T. J. Sejnowski, “Gradient descent for spiking neural networks,” in Proc. Neural Inf.
+Process. Syst., 2018, pp. 1433–1443.
+11
+[18] Y. Wu, L. Deng, G. Li, J. Zhu, Y. Xie, and L. Shi, “Direct training for spiking neural networks:
+Faster, larger, better,” in Proc. AAAI Conf. on Artificial Intell., vol. 33, 2019, pp. 1311–1318.
+[19] G.-q. Bi and M.-m. Poo, “Synaptic modifications in cultured hippocampal neurons: dependence
+on spike timing, synaptic strength, and postsynaptic cell type,” J. Neurosci., vol. 18, no. 24, pp.
+10 464–10 472, 1998.
+[20] T. Masquelier and S. J. Thorpe, “Unsupervised learning of visual features through spike timing
+dependent plasticity,” PLoS Comput. Biol., vol. 3, no. 2, p. e31, 2007.
+[21] ——, “Learning to recognize objects using waves of spikes and spike timing-dependent plastic ity,” in Proc. Int. Jnt. Conf. Neural Netw. IEEE, 2010, pp. 1–8.
+[22] P. U. Diehl and M. Cook, “Unsupervised learning of digit recognition using spike-timing dependent plasticity,” Front. Comput. Neurosci., vol. 9, 2015.
+[23] D. Liu and S. Yue, “Event-driven continuous STDP learning with deep structure for visual
+pattern recognition,” IEEE Trans. Cybern., no. 99, pp. 1–14, 2018.
+[24] N. Rathi, P. Panda, and K. Roy, “STDP-based pruning of connections and weight quantization
+in spiking neural networks for energy-efficient recognition,” IEEE Trans. Comput.-Aided Des.
+Integr. Circuits Syst., vol. 38, no. 4, pp. 668–677, 2018.
+[25] P. Berkes, G. Orbán, M. Lengyel, and J. Fiser, “Spontaneous cortical activity reveals hallmarks
+of an optimal internal model of the environment,” Science, vol. 331, no. 6013, pp. 83–87, 2011.
+[26] W. Maass, “Noise as a resource for computation and learning in networks of spiking neurons,”
+Proc. IEEE, vol. 102, no. 5, pp. 860–880, 2014.
+[27] Y. Huang and R. P. Rao, “Bayesian inference and online learning in poisson neuronal networks,”
+Neural Comput., vol. 28, no. 8, pp. 1503–1526, 2016.
+[28] E. O. Neftci, B. U. Pedroni, S. Joshi, M. Al-Shedivat, and G. Cauwenberghs, “Stochastic
+synapses enable efficient brain-inspired learning machines,” Front. Neurosci., vol. 10, p. 241,
+2016.
+[29] J. A. Pérez-Carrasco, B. Zhao, C. Serrano, B. Acha, T. Serrano-Gotarredona, S. Chen, and
+B. Linares-Barranco, “Mapping from frame-driven to frame-free event-driven vision systems by
+low-rate rate coding and coincidence processing–application to feedforward convnets,” IEEE
+Trans. Pattern Anal. Mach. Intell., vol. 35, no. 11, pp. 2706–2719, 2013.
+[30] W. Gerstner and W. M. Kistler, Spiking neuron models: Single neurons, populations, plasticity.
+Cambridge University Press, 2002.
+[31] P. O’connor, D. Neil, S. Liu, T. Delbruck, and M. Pfeiffer, “Real-time classification and sensor
+fusion with a spiking deep belief network,” Front. Neurosci., vol. 7, pp. 178–178, 2013.
+[32] E. Hunsberger and C. Eliasmith, “Spiking deep networks with LIF neurons,” arXiv preprint
+arXiv:1510.08829, 2015.
+[33] Q. Liu and S. Furber, “Noisy softplus: a biology inspired activation function.” in Proc. Neural
+Inf. Process. Syst., 2016, pp. 405–412.
+[34] S. K. Esser, R. Appuswamy, P. Merolla, J. V. Arthur, and D. S. Modha, “Backpropagation
+for energy-efficient neuromorphic computing,” in Proc. Neural Inf. Process. Syst., 2015, pp.
+1117–1125.
+[35] Y. Cao, Y. Chen, and D. Khosla, “Spiking deep convolutional neural networks for energy efficient object recognition,” Int. J. Comput. Vis., vol. 113, no. 1, pp. 54–66, 2015.
+[36] P. U. Diehl, D. Neil, J. Binas, M. Cook, S.-C. Liu, and M. Pfeiffer, “Fast-classifying, high accuracy spiking deep networks through weight and threshold balancing,” in Proc. Int. Jt. Conf.
+Neural Netw. IEEE, 2015, pp. 1–8.
+[37] A. Sengupta, Y. Ye, R. Wang, C. Liu, and K. Roy, “Going deeper in spiking neural networks:
+VGG and residual architectures,” Front. Neurosci., vol. 13, p. 95, 2019.
+[38] D. Neil, M. Pfeiffer, and S.-C. Liu, “Learning to be efficient: algorithms for training low-latency,
+low-compute deep spiking neural networks,” in Proc. ACM Symp. Appl. Comput., 2016, pp.
+293–298.
+12
+[39] B. Rueckauer, I.-A. Lungu, Y. Hu, M. Pfeiffer, and S.-C. Liu, “Conversion of continuous-valued
+deep networks to efficient event-driven networks for image classification,” Front. Neurosci.,
+2017.
+[40] S. K. Esser, P. A. Merolla, J. V. Arthur, A. S. Cassidy, R. Appuswamy, A. Andreopoulos,
+D. J. Berg, J. L. McKinstry, T. Melano, D. R. Barch et al., “Convolutional networks for fast,
+energy-efficient neuromorphic computing,” Proc. Natl. Acad. Sci. U.S.A., p. 201604850, 2016.
+[41] S. Ioffe and C. Szegedy, “Batch normalization: Accelerating deep network training by reducing
+internal covariate shift,” in Proc. Int. Conf. Mach. Learn., 2015, pp. 448–456.
+[42] Y. LeCun, L. Bottou, Y. Bengio, and P. Haffner, “Gradient-based learning applied to document
+recognition,” Proc. IEEE, vol. 86, no. 11, pp. 2278–2324, 1998.
+[43] A. Krizhevsky and G. Hinton, “Learning multiple layers of features from tiny images,” 2009.
+[44] O. Russakovsky, J. Deng, H. Su, J. Krause, S. Satheesh, S. Ma, Z. Huang, A. Karpathy,
+A. Khosla, M. Bernstein, A. C. Berg, and L. Fei-Fei, “ImageNet Large Scale Visual Recognition
+Challenge,” Int. J. Comput. Vis., vol. 115, no. 3, pp. 211–252, 2015.
+[45] A. Vedaldi and K. Lenc, “MatConvNet: Convolutional neural networks for Matlab,” in Proc.
+ACM Int. Conf. Multimedia, 2015, pp. 689–692.
+[46] K. Simonyan and A. Zisserman, “Very deep convolutional networks for large-scale image
+recognition,” in Proc. Int. Conf. Learn. Repr., 2015.
+[47] S. Albanie, “MCN-Models.” [Online]. Available: http://www.robots.ox.ac.uk/~albanie/
+mcn-models.html
+[48] Intel Corporation, “Intel Stratix 10 TX Device Overview.” [Online]. Avail able: https://www.intel.com/content/dam/www/programmable/us/en/pdfs/literature/hb/
+stratix-10/s10_tx_overview.pdf
+[49] G. Indiveri, F. Corradi, and N. Qiao, “Neuromorphic architectures for spiking deep neural
+networks,” in Proc. IEEE Int. Electron Devices Meeting, 2015, pp. 4–2.
+13

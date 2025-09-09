@@ -7,15 +7,23 @@ class QSNN(nn.Module):
         super(QSNN, self).__init__()
 
     def forward(self, weights: torch.Tensor) -> torch.Tensor:
-        if weights.dim() == 4:
-            alpha = weights.abs().mean(dim=(1, 2, 3), keepdim=True).detach()
-        elif weights.dim() == 3:
-            alpha = weights.abs().mean(dim=(1, 2), keepdim=True).detach()
-        else:
-            alpha = weights.abs().mean(dim=1, keepdim=True).detach()
+        # WS-DR weight regulation: layer-wise standardization, channel-wise scaling
+        eps = 1e-8
+        mu = weights.mean()
+        sigma = torch.clamp(weights.std(unbiased=False), min=eps)
+        w_hat = (weights - mu) / sigma
 
-        alpha = torch.clamp(alpha, min=1e-8)
-        w_bin = alpha * torch.sign(weights)
+        if weights.dim() == 4:
+            reduce_dims = (1, 2, 3)
+        elif weights.dim() == 3:
+            reduce_dims = (1, 2)
+        else:
+            reduce_dims = (1,)
+
+        alpha = w_hat.abs().mean(dim=reduce_dims, keepdim=True).detach()
+        alpha = torch.clamp(alpha, min=eps)
+        w_bin = alpha * torch.sign(w_hat)
+        # STE: forward uses binarized, backward w.r.t original full-precision weights
         w_ste = w_bin.detach() - weights.detach() + weights
         return w_ste
 

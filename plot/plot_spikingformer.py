@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 import warnings
 import logging
 
@@ -198,42 +199,46 @@ def main():
         sd_v = model_v.state_dict()
         sd_r = model_r.state_dict()
 
-        blocks = int(args['depths']) if isinstance(args['depths'], int) else 4
+        # Only plot block3 with 4 subplots: q, k, proj, mlp2, arranged as 2x2 grid
+        target_block_index = 3
         cols = [
-            ('attn.q_conv',  'q_conv'),
-            ('attn.k_conv',  'k_conv'),
-            ('attn.v_conv',  'v_conv'),
+            ('attn.q_conv',   'q_conv'),
+            ('attn.k_conv',   'k_conv'),
             ('attn.proj_conv','proj_conv'),
-            ('mlp.mlp1_conv','mlp1_conv'),
-            ('mlp.mlp2_conv','mlp2_conv'),
+            ('mlp.mlp2_conv', 'mlp2_conv'),
         ]
-        fig, axes = plt.subplots(nrows=blocks, ncols=len(cols), figsize=(6*3.0, blocks*2.6))
-        if blocks == 1:
-            axes = np.expand_dims(axes, 0)
+        nrows, ncols = 2, 2
+        fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*3.0, nrows*2.6))
 
-        for i in range(blocks):
-            for j, (spec, short) in enumerate(cols):
-                ax = axes[i, j]
-                key = f'block.{i}.{spec}.weight'
-                title = f'Block{i}.{short}'
-                if key not in sd_v or key not in sd_r:
-                    ax.set_title(title + ' (missing)')
-                    ax.axis('off')
-                    continue
-                w_v = sd_v[key].detach().cpu().numpy().ravel()
-                w_r_full = sd_r[key].detach().cpu().numpy().ravel()
-                # use scalar mean-abs gamma for overlay一致性（与现有resnet_q8实现匹配）
-                gamma = float(np.mean(np.abs(w_r_full))) if w_r_full.size > 0 else 1.0
-                gamma = max(gamma, 1e-12)
-                w_r = w_r_full / gamma
-                xmin, xmax = -5.0, 5.0
-                bins = np.linspace(xmin, xmax, 81)
-                ax.hist(w_r, bins=bins, color='#2a6f97', alpha=0.85, edgecolor='white', label='ReScaW')
-                ax.hist(w_v, bins=bins, color='#7ec8e3', alpha=0.85, edgecolor='white', label='Vanilla')
-                ax.set_xlim(xmin, xmax)
-                ax.set_title(title)
-                ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.6)
-                ax.legend(loc='upper right', frameon=True, fontsize=8, handlelength=1.6, borderpad=0.25, labelspacing=0.25)
+        for idx, (spec, short) in enumerate(cols):
+            r, c = divmod(idx, ncols)
+            ax = axes[r, c]
+            key = f'block.{target_block_index}.{spec}.weight'
+            title = f'Block{target_block_index}.{short}'
+            if key not in sd_v or key not in sd_r:
+                ax.set_title(title + ' (missing)')
+                ax.axis('off')
+                continue
+            w_v = sd_v[key].detach().cpu().numpy().ravel()
+            w_r_full = sd_r[key].detach().cpu().numpy().ravel()
+            # use scalar mean-abs gamma for overlay一致性（与现有resnet_q8实现匹配）
+            gamma = float(np.mean(np.abs(w_r_full))) if w_r_full.size > 0 else 1.0
+            gamma = max(gamma, 1e-12)
+            w_r = w_r_full / gamma
+            xmin, xmax = -5.0, 5.0
+            bins = np.linspace(xmin, xmax, 81)
+            ax.hist(w_r, bins=bins, color='#2a6f97', alpha=0.85, edgecolor='white', label='ReScaW')
+            ax.hist(w_v, bins=bins, color='#7ec8e3', alpha=0.85, edgecolor='white', label='Vanilla')
+            ax.set_xlim(xmin, xmax)
+            # move subplot title to bottom as x-label
+            ax.set_xlabel(title)
+            ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.6)
+            ax.legend(loc='upper right', frameon=True, fontsize=8, handlelength=1.6, borderpad=0.25, labelspacing=0.25)
+            # force scientific notation for y-axis (like the example with 1e4/1e5)
+            yfmt = ScalarFormatter(useMathText=True)
+            yfmt.set_powerlimits((0, 0))
+            ax.yaxis.set_major_formatter(yfmt)
+            ax.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
 
         plt.tight_layout()
         OUT_PATH_OVERLAY.parent.mkdir(parents=True, exist_ok=True)
